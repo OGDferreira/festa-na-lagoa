@@ -129,9 +129,23 @@ function checaDJ() {
   novo.virarDJ(lagoa.cabine);
   novo.atualizaPlaca();
   ui.novoDJ(top.user);
+  somTop1('doador');
   // camera da um zoom no novo DJ
   focarPresente(novo, { nivel: 5 });
 }
+
+// ---- efeito sonoro quando chega um novo TOP 1 ----------------------------
+const ultimoSom = { doador: 0, curtidor: 0 };
+function somTop1(tipo) {
+  const e = CONFIG.efeitos;
+  if (!e || !e.ligado) return;
+  const agora = performance.now() / 1000;
+  if (agora - ultimoSom[tipo] < (e.intervaloMinimo ?? 8)) return;
+  ultimoSom[tipo] = agora;
+  if (tipo === 'doador') audio.efeito('buzina', e.arquivoDoador, e.volume);
+  else audio.efeito('fanfarra', e.arquivoCurtidor, e.volume);
+}
+let top1Curtidor = null;
 
 // ranking: recalcula no maximo 2x por segundo
 let rankingSujo = false;
@@ -140,7 +154,12 @@ setInterval(() => {
   if (!rankingSujo) return;
   rankingSujo = false;
   ui.ranking('doadores', [...doadores.values()].sort((a, b) => b.valor - a.valor));
-  ui.ranking('curtidores', [...curtidores.values()].sort((a, b) => b.valor - a.valor));
+  const listaCurt = [...curtidores.values()].sort((a, b) => b.valor - a.valor);
+  ui.ranking('curtidores', listaCurt);
+  if (listaCurt[0] && listaCurt[0].id !== top1Curtidor) {
+    if (top1Curtidor !== null) somTop1('curtidor'); // nao toca no primeiro like da live
+    top1Curtidor = listaCurt[0].id;
+  }
 }, 500);
 function atualizaMeta() { ui.meta(metaPontos); }
 

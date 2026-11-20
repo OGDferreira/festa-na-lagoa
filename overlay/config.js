@@ -73,6 +73,18 @@ export const CONFIG = {
     intensidade: 1
   },
 
+  // ---- EFEITOS SONOROS (quando chega um novo TOP 1) ----------------------
+  // Por padrao os sons sao gerados aqui mesmo (sem copyright).
+  // Pra usar um som seu, coloque o arquivo em overlay/assets/ e aponte,
+  // ex: arquivoDoador: 'assets/buzina.mp3'. Vazio '' = som gerado.
+  efeitos: {
+    ligado: true,
+    volume: 0.9,
+    arquivoDoador: '',       // novo top 1 doador (= novo DJ): buzina de DJ
+    arquivoCurtidor: '',     // novo top 1 curtidor: fanfarra
+    intervaloMinimo: 8       // segundos entre um efeito e outro do mesmo tipo
+  },
+
   // ---- ESTAGIOS DO SAPO (crescimento por likes) --------------------------
   // Cada espectador comeca como girino. Acumulando likes, sobe de estagio.
   // "min" = quantos likes precisa pra chegar naquele estagio.

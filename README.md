@@ -102,6 +102,8 @@ Abra `http://localhost:8080/admin` no navegador do mesmo computador.
 - **Resumo da live**: viewers agora e pico, curtidas, moedas, presentes,
   entradas, seguidores, comentários e os top 5. Conta desde que o servidor ligou.
 
+Música que está no **celular**: passe o arquivo pro computador (cabo USB, WhatsApp Web, Google Drive...) e arraste no painel.
+
 O painel só abre no próprio computador (não fica exposto na rede).
 
 ---
@@ -117,6 +119,7 @@ Mexa só no arquivo **`overlay/config.js`**. Lá dá pra trocar, sem programar:
 | Títulos dos cards top 5 | `ranking` |
 | Tamanho da tela e margens pra interface do TikTok | `tela` |
 | BPM da dança, cores e quantidade de luzes | `festa` |
+| Som de novo TOP 1 (buzina de DJ / fanfarra, ou arquivo seu) | `efeitos` |
 | Cores do tema (água, folha, neon, ouro…) | `cores` |
 | Quantos likes pra virar sapo / perereca | `estagios` |
 | Quantos sapos na tela ao mesmo tempo | `maxSapos` |

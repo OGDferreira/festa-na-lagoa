@@ -209,5 +209,69 @@ export function criarAudio({ bpm = 120, onTocando, onLiberou } = {}) {
     return { fase, batida: pulso };
   }
 
-  return { setEstado, comando, liberar, ritmo, get liberado() { return liberado; } };
+  // ------------------------------------------------------------------
+  //  EFEITOS SONOROS (novo top 1)
+  //  tipo 'buzina' = buzina de DJ (novo top 1 doador)
+  //  tipo 'fanfarra' = fanfarrinha (novo top 1 curtidor)
+  //  Se o config apontar um arquivo, toca o arquivo no lugar do som gerado.
+  // ------------------------------------------------------------------
+  const arquivosEfeito = {};
+  function efeito(tipo, arquivo, volume = 0.9) {
+    if (!liberado || !ctx) return;
+    const tm = ctx.currentTime + 0.02;
+    const saida = ctx.createGain();
+    saida.gain.value = volume;
+    saida.connect(ctx.destination); // fora do master: o volume da musica nao abafa o efeito
+    // abaixa a musica rapidinho pro efeito aparecer
+    master.gain.cancelScheduledValues(tm);
+    master.gain.setTargetAtTime(estado.volume * 0.35, tm, 0.03);
+    master.gain.setTargetAtTime(estado.volume, tm + 1.3, 0.25);
+
+    if (arquivo) {
+      const a = arquivosEfeito[arquivo] || (arquivosEfeito[arquivo] = new Audio(arquivo));
+      a.currentTime = 0; a.volume = Math.min(1, volume);
+      a.play().catch(() => {});
+      return;
+    }
+    if (tipo === 'buzina') {
+      // buzina de DJ: 3 toques curtos + 1 longo, onda serrilhada com vibrato
+      const toques = [[0, 0.12], [0.16, 0.12], [0.32, 0.12], [0.5, 0.7]];
+      for (const [ini, dur] of toques) {
+        for (const det of [0, 7, -7]) {
+          const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+          o.type = 'sawtooth';
+          o.frequency.setValueAtTime(466, tm + ini);
+          o.frequency.linearRampToValueAtTime(440, tm + ini + dur);
+          o.detune.value = det;
+          const lfo = ctx.createOscillator(), lg = ctx.createGain();
+          lfo.frequency.value = 9; lg.gain.value = 12;
+          lfo.connect(lg); lg.connect(o.frequency);
+          f.type = 'lowpass'; f.frequency.value = 2400;
+          g.gain.setValueAtTime(0.0001, tm + ini);
+          g.gain.exponentialRampToValueAtTime(0.12, tm + ini + 0.02);
+          g.gain.setValueAtTime(0.12, tm + ini + dur - 0.04);
+          g.gain.exponentialRampToValueAtTime(0.0001, tm + ini + dur);
+          o.connect(f); f.connect(g); g.connect(saida);
+          o.start(tm + ini); lfo.start(tm + ini);
+          o.stop(tm + ini + dur + 0.05); lfo.stop(tm + ini + dur + 0.05);
+        }
+      }
+    } else {
+      // fanfarra: arpejo subindo + acorde final brilhante
+      const notas = [[0, 523.25, 0.12], [0.12, 659.25, 0.12], [0.24, 783.99, 0.12], [0.38, 1046.5, 0.6]];
+      for (const [ini, fq, dur] of notas) {
+        for (const [tipoO, mult, vol] of [['square', 1, 0.05], ['triangle', 1, 0.12], ['sine', 2, 0.04]]) {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = tipoO; o.frequency.value = fq * mult;
+          g.gain.setValueAtTime(0.0001, tm + ini);
+          g.gain.exponentialRampToValueAtTime(vol, tm + ini + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, tm + ini + dur);
+          o.connect(g); g.connect(saida);
+          o.start(tm + ini); o.stop(tm + ini + dur + 0.05);
+        }
+      }
+    }
+  }
+
+  return { setEstado, comando, liberar, ritmo, efeito, get liberado() { return liberado; } };
 }
