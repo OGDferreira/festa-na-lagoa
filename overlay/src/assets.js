@@ -111,6 +111,59 @@ export function texturaSapo(hue, perereca = false) {
   return tex;
 }
 
+// ---- BRACO + MAOZINHA do sapo (pra balancar na danca) ------------------
+// Desenhado na vertical: ombro embaixo, mao em cima. O pivo fica no ombro.
+export function texturaBraco(hue) {
+  const key = 'braco-' + Math.round(hue);
+  if (_cache.has(key)) return _cache.get(key);
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 256;
+  const g = c.getContext('2d');
+  const base = `hsl(${hue}, 65%, 50%)`;
+  const escuro = `hsl(${hue}, 60%, 36%)`;
+  const claro = `hsl(${hue}, 60%, 66%)`;
+  // braco (tubo arredondado)
+  g.lineCap = 'round';
+  g.strokeStyle = escuro; g.lineWidth = 40;
+  g.beginPath(); g.moveTo(64, 236); g.quadraticCurveTo(74, 160, 64, 92); g.stroke();
+  g.strokeStyle = base; g.lineWidth = 32;
+  g.beginPath(); g.moveTo(64, 236); g.quadraticCurveTo(74, 160, 64, 92); g.stroke();
+  // palma
+  g.fillStyle = base;
+  g.beginPath(); g.ellipse(64, 78, 30, 26, 0, 0, Math.PI * 2); g.fill();
+  // dedinhos com pontas redondas (ventosas de sapo)
+  const dedos = [-0.75, -0.25, 0.25, 0.75];
+  for (const a of dedos) {
+    const x2 = 64 + Math.sin(a) * 48, y2 = 70 - Math.cos(a) * 52;
+    g.strokeStyle = base; g.lineWidth = 12;
+    g.beginPath(); g.moveTo(64, 74); g.lineTo(x2, y2); g.stroke();
+    g.fillStyle = claro;
+    g.beginPath(); g.arc(x2, y2, 10, 0, Math.PI * 2); g.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  _cache.set(key, tex);
+  return tex;
+}
+
+// ---- BRILHO redondo (vagalume, lanterna, bokeh) --------------------------
+export function texturaBrilho() {
+  const key = 'brilho';
+  if (_cache.has(key)) return _cache.get(key);
+  const c = canvas(128);
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,.8)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,.18)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(64, 64, 64, 0, Math.PI * 2); g.fill();
+  const tex = new THREE.CanvasTexture(c);
+  _cache.set(key, tex);
+  return tex;
+}
+
 // ---- AVATAR redondo (foto do espectador ou fallback com inicial) ---------
 export function texturaAvatar({ name = '?', color, url }) {
   const c = canvas(128);
@@ -141,21 +194,26 @@ export function texturaAvatar({ name = '?', color, url }) {
 }
 
 // ---- placa de nome + rank -----------------------------------------------
-export function texturaNome(texto, rank, cores) {
+export function texturaNome(texto, rank, cores, dj = false) {
   const c = canvas(512); c.height = 128;
   const g = c.getContext('2d');
-  const prefixo = rank ? `#${String(rank).padStart(2, '0')} ` : '';
+  const prefixo = dj ? '🎧 DJ ' : (rank ? `#${String(rank).padStart(2, '0')} ` : '');
   const full = prefixo + texto;
-  g.font = '700 44px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '800 44px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
   const w = Math.min(500, g.measureText(full).width + 60);
   const x0 = 256 - w / 2;
-  // pilula
-  g.fillStyle = 'rgba(8,20,16,.78)';
+  // pilula de vidro colorido (nada de fundo preto)
+  const grad = g.createLinearGradient(x0, 0, x0 + w, 0);
+  if (dj) { grad.addColorStop(0, 'rgba(255,77,157,.78)'); grad.addColorStop(1, 'rgba(176,124,255,.78)'); }
+  else { grad.addColorStop(0, 'rgba(40,150,120,.62)'); grad.addColorStop(1, 'rgba(60,110,170,.62)'); }
+  g.fillStyle = grad;
   roundRect(g, x0, 36, w, 56, 28); g.fill();
-  g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.2)'; roundRect(g, x0, 36, w, 56, 28); g.stroke();
-  if (rank) { g.fillStyle = cores.ouro; g.fillText(prefixo, 256 - g.measureText(texto).width / 2 - g.measureText(prefixo).width / 2, 64); }
+  g.lineWidth = 3; g.strokeStyle = dj ? 'rgba(255,230,120,.9)' : 'rgba(255,255,255,.45)'; roundRect(g, x0, 36, w, 56, 28); g.stroke();
+  g.shadowColor = 'rgba(0,30,20,.7)'; g.shadowBlur = 6;
+  const wTexto = g.measureText(texto).width, wPre = g.measureText(prefixo).width;
+  if (prefixo) { g.fillStyle = cores.ouro; g.fillText(prefixo, 256 - wTexto / 2, 64); }
   g.fillStyle = '#fff';
-  g.fillText(rank ? texto : full, rank ? 256 + g.measureText(prefixo).width / 2 : 256, 64);
+  g.fillText(texto, 256 + (prefixo ? wPre / 2 : 0), 64);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;

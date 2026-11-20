@@ -1,6 +1,7 @@
 // server/index.js
-// Servidor unico: serve o overlay (pasta /overlay) e repassa os eventos da
-// live do TikTok para o overlay via WebSocket. Tem modo demo embutido.
+// Servidor unico: serve o overlay (pasta /overlay), o painel de admin
+// (pasta /admin, em /admin) e repassa os eventos da live do TikTok para o
+// overlay via WebSocket. Tem modo demo embutido.
 //
 // Uso:
 //   npm run demo                      (eventos falsos)
@@ -29,8 +30,15 @@ if (flag('live')) MODE = 'live';
 const USERNAME = opt('user', config.tiktokUsername).replace(/^@/, '');
 const PORT = Number(opt('port', config.port));
 
-// ---- servidor http que serve a pasta /overlay ----------------------------
+// ---- pastas ---------------------------------------------------------------
 const OVERLAY_DIR = path.join(__dirname, '..', 'overlay');
+const ADMIN_DIR = path.join(__dirname, '..', 'admin');
+const MUSICA_DIR = path.join(OVERLAY_DIR, 'assets', 'musica');
+const DATA_DIR = path.join(__dirname, 'data');
+const PLAYLIST_FILE = path.join(DATA_DIR, 'playlist.json');
+fs.mkdirSync(MUSICA_DIR, { recursive: true });
+fs.mkdirSync(DATA_DIR, { recursive: true });
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -42,29 +50,193 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
   '.woff2': 'font/woff2'
 };
+const EXT_MUSICA = ['.mp3', '.ogg', '.wav', '.m4a'];
 
-const server = http.createServer((req, res) => {
-  let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-  if (urlPath === '/') urlPath = '/index.html';
-  const filePath = path.join(OVERLAY_DIR, path.normalize(urlPath));
-  if (!filePath.startsWith(OVERLAY_DIR)) { res.writeHead(403); return res.end('forbidden'); }
+// ---- PLAYLIST (controlada pelo painel /admin) -----------------------------
+// faixas: [{ arquivo, titulo }]   modo: 'playlist' | 'gerada'
+let playlist = { faixas: [], modo: 'gerada', volume: 0.6, aleatorio: false, tocando: true };
+let tocandoAgora = null; // o que o overlay disse que esta tocando
+
+function tituloDe(arquivo) {
+  return arquivo.replace(/\.[^.]+$/, '').replace(/_+/g, ' ').trim();
+}
+function carregaPlaylist() {
+  try { playlist = { ...playlist, ...JSON.parse(fs.readFileSync(PLAYLIST_FILE, 'utf8')) }; } catch {}
+  sincronizaPasta();
+}
+// arquivos jogados direto na pasta entram no fim; os apagados saem
+function sincronizaPasta() {
+  const naPasta = fs.readdirSync(MUSICA_DIR).filter((f) => EXT_MUSICA.includes(path.extname(f).toLowerCase()));
+  playlist.faixas = playlist.faixas.filter((f) => naPasta.includes(f.arquivo));
+  for (const f of naPasta) {
+    if (!playlist.faixas.some((x) => x.arquivo === f)) playlist.faixas.push({ arquivo: f, titulo: tituloDe(f) });
+  }
+}
+function gravaPlaylist() { fs.writeFile(PLAYLIST_FILE, JSON.stringify(playlist, null, 2), () => {}); }
+function salvaPlaylist() {
+  gravaPlaylist();
+  broadcast({ t: 'playlist', estado: playlist });
+}
+
+// ---- ESTATISTICAS da live (resumo pro painel) -----------------------------
+const stats = {
+  inicio: Date.now(), likes: 0, presentes: 0, moedas: 0, entradas: 0,
+  comentarios: 0, seguidores: 0, compartilhamentos: 0, viewers: 0, picoViewers: 0,
+  doadores: {}, curtidores: {}
+};
+function contabiliza(ev) {
+  const soma = (mapa, u, n) => {
+    const r = mapa[u.id] || (mapa[u.id] = { name: u.name, valor: 0 });
+    r.name = u.name; r.valor += n;
+  };
+  if (ev.t === 'like') { stats.likes += ev.count || 1; soma(stats.curtidores, ev.user, ev.count || 1); }
+  else if (ev.t === 'gift') { stats.presentes++; stats.moedas += ev.diamond || 0; soma(stats.doadores, ev.user, ev.diamond || 0); }
+  else if (ev.t === 'join') stats.entradas++;
+  else if (ev.t === 'chat') stats.comentarios++;
+  else if (ev.t === 'viewers') { stats.viewers = ev.count; stats.picoViewers = Math.max(stats.picoViewers, ev.count); }
+  else if (ev.t === 'social') { if (ev.tipo === 'follow') stats.seguidores++; else if (ev.tipo === 'share') stats.compartilhamentos++; }
+}
+function resumoStats() {
+  const top5 = (m) => Object.values(m).sort((a, b) => b.valor - a.valor).slice(0, 5);
+  return { ...stats, doadores: top5(stats.doadores), curtidores: top5(stats.curtidores), minutos: Math.round((Date.now() - stats.inicio) / 60000) };
+}
+
+// ---- HTTP ------------------------------------------------------------------
+// O painel e a API so respondem pra quem esta no proprio computador.
+function local(req) {
+  const ip = req.socket.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+function json(res, code, obj) {
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(obj));
+}
+function lerCorpo(req, limite, cb) {
+  const partes = []; let tam = 0, estourou = false;
+  req.on('data', (c) => { tam += c.length; if (tam > limite) { estourou = true; req.destroy(); } else partes.push(c); });
+  req.on('end', () => { if (!estourou) cb(Buffer.concat(partes)); });
+}
+function lerJson(req, res, cb) {
+  lerCorpo(req, 1024 * 1024, (buf) => {
+    let obj; try { obj = JSON.parse(buf.toString('utf8')); } catch { return json(res, 400, { erro: 'json invalido' }); }
+    cb(obj || {});
+  });
+}
+function servirArquivo(res, base, urlPath) {
+  const filePath = path.join(base, path.normalize(urlPath));
+  if (!filePath.startsWith(base)) { res.writeHead(403); return res.end('forbidden'); }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); return res.end('nao encontrado'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
+      'Cache-Control': 'no-cache'
+    });
     res.end(data);
   });
+}
+
+function api(req, res, urlPath) {
+  if (!local(req)) return json(res, 403, { erro: 'so no computador da live' });
+
+  if (req.method === 'GET' && urlPath === '/api/estado') {
+    return json(res, 200, { playlist, tocando: tocandoAgora, stats: resumoStats(), modo: MODE, usuario: USERNAME });
+  }
+
+  // upload de musica: corpo = bytes do arquivo, nome no header X-Arquivo
+  if (req.method === 'POST' && urlPath === '/api/musicas') {
+    let nome = '';
+    try { nome = decodeURIComponent(req.headers['x-arquivo'] || ''); } catch {}
+    nome = path.basename(nome).replace(/[^\w.\- ()À-ú]/g, '_').slice(0, 120);
+    const ext = path.extname(nome).toLowerCase();
+    if (!nome || !EXT_MUSICA.includes(ext)) return json(res, 400, { erro: 'formato nao suportado (use mp3, ogg, wav ou m4a)' });
+    return lerCorpo(req, 60 * 1024 * 1024, (buf) => {
+      fs.writeFile(path.join(MUSICA_DIR, nome), buf, (err) => {
+        if (err) return json(res, 500, { erro: err.message });
+        if (!playlist.faixas.some((f) => f.arquivo === nome)) playlist.faixas.push({ arquivo: nome, titulo: tituloDe(nome) });
+        salvaPlaylist();
+        json(res, 200, { ok: true, playlist });
+      });
+    });
+  }
+
+  // apaga a musica (arquivo + playlist)
+  if (req.method === 'DELETE' && urlPath.startsWith('/api/musicas/')) {
+    const nome = path.basename(urlPath.slice('/api/musicas/'.length));
+    playlist.faixas = playlist.faixas.filter((f) => f.arquivo !== nome);
+    fs.unlink(path.join(MUSICA_DIR, nome), () => {});
+    salvaPlaylist();
+    return json(res, 200, { ok: true, playlist });
+  }
+
+  // atualiza ordem / titulos / modo / volume / aleatorio
+  if (req.method === 'POST' && urlPath === '/api/playlist') {
+    return lerJson(req, res, (novo) => {
+      if (Array.isArray(novo.faixas)) {
+        const existentes = new Map(playlist.faixas.map((f) => [f.arquivo, f]));
+        playlist.faixas = novo.faixas
+          .filter((f) => f && existentes.has(f.arquivo))
+          .map((f) => ({ arquivo: f.arquivo, titulo: String(f.titulo || existentes.get(f.arquivo).titulo).slice(0, 120) }));
+      }
+      if (novo.modo === 'playlist' || novo.modo === 'gerada') playlist.modo = novo.modo;
+      if (typeof novo.volume === 'number') playlist.volume = Math.max(0, Math.min(1, novo.volume));
+      if (typeof novo.aleatorio === 'boolean') playlist.aleatorio = novo.aleatorio;
+      salvaPlaylist();
+      json(res, 200, { ok: true, playlist });
+    });
+  }
+
+  // comandos do player: tocar / pausar / proxima / anterior (+ idx opcional)
+  if (req.method === 'POST' && urlPath === '/api/player') {
+    return lerJson(req, res, (cmd) => {
+      if (!['tocar', 'pausar', 'proxima', 'anterior'].includes(cmd.acao)) return json(res, 400, { erro: 'acao invalida' });
+      playlist.tocando = cmd.acao !== 'pausar';
+      const idx = typeof cmd.idx === 'number' ? cmd.idx : undefined;
+      if (idx !== undefined) playlist.modo = 'playlist';
+      gravaPlaylist();
+      broadcast({ t: 'player', acao: cmd.acao, idx });
+      json(res, 200, { ok: true });
+    });
+  }
+
+  json(res, 404, { erro: 'rota nao encontrada' });
+}
+
+const server = http.createServer((req, res) => {
+  let urlPath;
+  try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); return res.end(); }
+  if (urlPath.startsWith('/api/')) return api(req, res, urlPath);
+  if (urlPath === '/admin' || urlPath.startsWith('/admin/')) {
+    if (!local(req)) { res.writeHead(403); return res.end('painel so no computador da live'); }
+    let sub = urlPath.slice('/admin'.length) || '/';
+    if (sub === '/') sub = '/index.html';
+    return servirArquivo(res, ADMIN_DIR, sub);
+  }
+  if (urlPath === '/') urlPath = '/index.html';
+  servirArquivo(res, OVERLAY_DIR, urlPath);
 });
 
-// ---- WebSocket: canal de eventos pro overlay -----------------------------
+// ---- WebSocket: canal de eventos pro overlay e pro painel ----------------
 const wss = new WebSocketServer({ server });
 const clients = new Set();
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   clients.add(ws);
+  const ehLocal = local(req);
   ws.on('close', () => clients.delete(ws));
+  ws.on('message', (raw) => {
+    let msg; try { msg = JSON.parse(raw); } catch { return; }
+    // o overlay conta o que esta tocando; repassa pro painel
+    if (msg.t === 'tocando' && ehLocal) {
+      tocandoAgora = { titulo: String(msg.titulo || ''), idx: msg.idx, modo: msg.modo, tocando: !!msg.tocando, liberado: !!msg.liberado };
+      broadcast({ t: 'tocando', ...tocandoAgora });
+    }
+  });
   ws.send(JSON.stringify({ t: 'hello', mode: MODE, user: USERNAME }));
+  ws.send(JSON.stringify({ t: 'playlist', estado: playlist }));
 });
 
 function broadcast(ev) {
@@ -74,8 +246,8 @@ function broadcast(ev) {
   }
 }
 
-// Normaliza qualquer evento num formato unico que o overlay entende.
-function emit(ev) { broadcast(ev); }
+// Todo evento da live passa aqui: conta no resumo e vai pro overlay.
+function emit(ev) { contabiliza(ev); broadcast(ev); }
 
 // ---- conexao com a live do TikTok ----------------------------------------
 function startLive() {
@@ -110,7 +282,8 @@ function startLive() {
   conn.on('member', (d) => emit({ t: 'join', user: user(d) }));
   conn.on('like', (d) => emit({ t: 'like', user: user(d), count: d.likeCount || 1, total: d.totalLikeCount || 0 }));
   conn.on('chat', (d) => emit({ t: 'chat', user: user(d), comment: d.comment || '' }));
-  conn.on('social', (d) => emit({ t: 'social', user: user(d), label: d.label || '' }));
+  conn.on('follow', (d) => emit({ t: 'social', user: user(d), tipo: 'follow' }));
+  conn.on('share', (d) => emit({ t: 'social', user: user(d), tipo: 'share' }));
   conn.on('roomUser', (d) => emit({ t: 'viewers', count: d.viewerCount || 0 }));
   conn.on('gift', (d) => {
     // Em presentes que ficam somando (streak), so conta quando termina.
@@ -187,16 +360,24 @@ function startDemo() {
     emit({ t: 'chat', user: u, comment: chats[Math.floor(Math.random() * chats.length)] });
   }, d.chatEveryMs);
 
+  setInterval(() => {
+    if (!pool.length || Math.random() < 0.5) return;
+    const u = pool[Math.floor(Math.random() * pool.length)];
+    emit({ t: 'social', user: u, tipo: Math.random() < 0.6 ? 'follow' : 'share' });
+  }, 9000);
+
   console.log('[demo] gerando eventos falsos. Abra o overlay pra ver.');
 }
 
 // ---- sobe tudo -----------------------------------------------------------
+carregaPlaylist();
 server.listen(PORT, () => {
   console.log('========================================================');
   console.log('  FESTA NA LAGOA — overlay rodando');
   console.log('  Overlay:   http://localhost:' + PORT);
+  console.log('  Painel:    http://localhost:' + PORT + '/admin   (musica e resumo da live)');
   console.log('  Modo:      ' + MODE + (MODE === 'live' ? '  (@' + USERNAME + ')' : ''));
-  console.log('  No OBS:    Browser Source -> http://localhost:' + PORT);
+  console.log('  No OBS:    Browser Source 1080x1920 -> http://localhost:' + PORT);
   console.log('========================================================');
   if (MODE === 'live') startLive();
   else startDemo();

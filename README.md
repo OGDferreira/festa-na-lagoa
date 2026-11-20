@@ -1,12 +1,25 @@
 # 🐸 Festa na Lagoa — overlay de minigame pra live do TikTok
 
-Overlay de lagoa 3D que roda como **Browser Source no OBS**. Cada espectador
-vira um sapo numa vitória-régia com a foto e o nome dele; **like faz o sapo
-crescer** até virar **PERERECA**; **presente** foca a câmera no doador com
-efeito especial. Tem ranking, barra de meta, música e os sapos dançando.
+Overlay de lagoa 3D **vertical (9:16, 1080x1920)** pra live de celular, que
+roda como **Browser Source no OBS**. É uma festa noturna na lagoa:
 
-Tudo com **arte própria** (os sapos, folhas e água são desenhados por código,
-nada copiado) e **fácil de editar** no arquivo `overlay/config.js`.
+- Cada espectador vira um bichinho com a foto e o nome dele. Quem curtiu pouco
+  é **girino nadando dentro d'água**; curtindo, pula pra folha como **sapo**,
+  e depois vira **PERERECA** (de coroa).
+- Os sapos são **3D** (volume, brilho, sombra) e **dançam no ritmo da música**
+  com as **maozinhas balançando**.
+- **Jogo de luzes de festa**: canhões de luz varrendo a lagoa, manchas
+  coloridas na água, globo espelhado, cordão de lanternas e vagalumes, tudo
+  pulsando com a batida.
+- O **maior doador vira o SAPO DJ**: ganha fone de ouvido e assume a cabine no
+  meio da lagoa, com o alerta **"🎧 NOVO DJ NA ÁREA!"**.
+- Cards de **TOP 5 DOADORES** e **TOP 5 CURTIDORES**, barra de meta, entradas e
+  presentes. Tudo em vidro colorido, sem caixa preta.
+- **Painel de admin** em `/admin` pra montar a **playlist** e ver o **resumo
+  da live**.
+
+Tudo com **arte própria** (os bichos, folhas, cabine e água são modelados por
+código, nada copiado) e **fácil de editar** no arquivo `overlay/config.js`.
 
 ![preview](preview.png)
 
@@ -33,7 +46,7 @@ Vai aparecer:
 Overlay:   http://localhost:8080
 ```
 
-Abra esse endereço no navegador. O modo demo gera entradas, likes e presentes
+Abra esse endereço no navegador (e o painel em `http://localhost:8080/admin`). O modo demo gera entradas, likes e presentes
 falsos sozinho — é só pra você ver a cara do jogo rolando. 🎉
 
 ## 3. Ligar na sua live de verdade
@@ -61,17 +74,35 @@ falsos sozinho — é só pra você ver a cara do jogo rolando. 🎉
 > request), pegue uma chave grátis em https://www.eulerstream.com e cole em
 > `signApiKey` no `server/config.js`.
 
-## 4. Colocar no OBS
+## 4. Colocar no OBS (vertical)
 
-1. No OBS: **Fontes → + → Navegador (Browser Source)**.
-2. Em **URL**, coloque: `http://localhost:8080`
-3. **Largura 1920 / Altura 1080** (ou a resolução da sua live).
-4. Marque **"Desligar a fonte quando não estiver visível" → desmarcado** e
+1. No OBS: **Configurações → Vídeo** → resolução base e de saída **1080x1920**.
+2. **Fontes → + → Navegador (Browser Source)**.
+3. Em **URL**, coloque: `http://localhost:8080`
+4. **Largura 1080 / Altura 1920**.
+5. Marque **"Controlar áudio via OBS"** (a música do painel sai por aí) e
    **"Atualizar navegador quando a cena ficar ativa"**.
-5. OK. O overlay aparece como camada por cima do que você quiser.
+6. OK. O overlay aparece como camada por cima do que você quiser.
 
 Deixe o `npm run live` (ou `npm run demo`) **rodando no terminal** o tempo todo
 enquanto estiver ao vivo — é ele que alimenta o overlay.
+
+> Deixe **só uma** cópia do overlay aberta com som (a do OBS). Se abrir também
+> no navegador, as duas tocam a música.
+
+## 4.1 Painel de admin: música e resumo da live
+
+Abra `http://localhost:8080/admin` no navegador do mesmo computador.
+
+- **Playlist**: arraste os arquivos (mp3, ogg, wav ou m4a) pra área de envio.
+  Dá pra reordenar, renomear (o nome aparece na live), tocar uma faixa
+  específica, apagar, ligar o aleatório e mexer no volume.
+- **Batida gerada**: um botão volta pra trilha de festa gerada pelo próprio
+  overlay (sem copyright). Ela também toca quando a playlist está vazia.
+- **Resumo da live**: viewers agora e pico, curtidas, moedas, presentes,
+  entradas, seguidores, comentários e os top 5. Conta desde que o servidor ligou.
+
+O painel só abre no próprio computador (não fica exposto na rede).
 
 ---
 
@@ -83,13 +114,14 @@ Mexa só no arquivo **`overlay/config.js`**. Lá dá pra trocar, sem programar:
 |---|---|
 | Nome da marca, nome do jogo, frase que pisca | `brand` |
 | Título e recompensa da barra de meta + objetivo | `meta` |
-| Título do ranking | `ranking` |
+| Títulos dos cards top 5 | `ranking` |
+| Tamanho da tela e margens pra interface do TikTok | `tela` |
+| BPM da dança, cores e quantidade de luzes | `festa` |
 | Cores do tema (água, folha, neon, ouro…) | `cores` |
 | Quantos likes pra virar sapo / perereca | `estagios` |
 | Quantos sapos na tela ao mesmo tempo | `maxSapos` |
 | **Presentes da sua live → efeito** (nome + emoji + tamanho) | `presentes` |
 | Câmera girando, zoom no presente | `camera` |
-| Música | `audio` |
 
 ### Combinar os presentes com a sua live
 No `presentes`, a **chave** é o nome exato do presente como aparece no TikTok.
@@ -97,10 +129,8 @@ Configure os presentes que quiser na sua live e liste eles aqui com o efeito.
 Nomes que não estiverem na lista usam o efeito `padrao`.
 
 ### Música
-Por padrão toca uma **trilha ambiente gerada** (sem risco de copyright). Pra
-usar a sua playlist, jogue os `.mp3` em `overlay/assets/musica/` e liste em
-`audio.playlist`. Música com direitos autorais pode derrubar/mutar a live — a
-trilha gerada evita isso.
+A música agora é controlada pelo painel `/admin` (veja 4.1). Música com
+direitos autorais pode mutar ou derrubar a live; a batida gerada evita isso.
 
 ### Logo e avatar do topo
 Em `brand.logo` aponte pra uma imagem sua em `overlay/assets/` (ex:
@@ -126,6 +156,8 @@ Em `brand.logo` aponte pra uma imagem sua em `overlay/assets/` (ex:
 
 ```
 festa-na-lagoa/
+├── admin/
+│   └── index.html    painel: playlist + resumo da live
 ├── server/
 │   ├── index.js      servidor: serve o overlay + repassa eventos da live
 │   └── config.js     modo (demo/live), usuário, porta

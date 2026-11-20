@@ -3,3 +3,4 @@ npm-debug.log*
 .DS_Store
 overlay/assets/musica/*
 !overlay/assets/musica/.gitkeep
+server/data/

@@ -1,6 +1,7 @@
 // overlay/src/events.js
-// Cliente WebSocket: recebe os eventos do servidor (join/like/gift/chat).
-// Reconecta sozinho se cair (importante pra live nao "morrer" visualmente).
+// Cliente WebSocket: recebe os eventos do servidor (join/like/gift/chat e os
+// comandos do painel de admin) e permite mandar coisas de volta (ex: qual
+// musica esta tocando). Reconecta sozinho se cair.
 export function conectarEventos(url, handlers, onStatus) {
   let ws;
   let tentativas = 0;
@@ -8,7 +9,11 @@ export function conectarEventos(url, handlers, onStatus) {
   function abrir() {
     ws = new WebSocket(url);
 
-    ws.onopen = () => { tentativas = 0; onStatus && onStatus({ conectado: true }); };
+    ws.onopen = () => {
+      tentativas = 0;
+      enviar({ t: 'sou', papel: 'overlay' });
+      onStatus && onStatus({ conectado: true });
+    };
 
     ws.onmessage = (msg) => {
       let ev;
@@ -19,7 +24,6 @@ export function conectarEventos(url, handlers, onStatus) {
 
     ws.onclose = () => {
       onStatus && onStatus({ conectado: false });
-      // backoff ate 5s
       const delay = Math.min(5000, 500 * Math.pow(1.6, tentativas++));
       setTimeout(abrir, delay);
     };
@@ -27,6 +31,10 @@ export function conectarEventos(url, handlers, onStatus) {
     ws.onerror = () => { try { ws.close(); } catch {} };
   }
 
+  function enviar(obj) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+  }
+
   abrir();
-  return { fechar: () => { try { ws.close(); } catch {} } };
+  return { enviar, fechar: () => { try { ws.close(); } catch {} } };
 }

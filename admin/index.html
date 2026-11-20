@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Painel da Festa</title>
+<style>
+  :root {
+    --fundo: #07121c; --card: #0f2030; --card2: #142a3d; --borda: rgba(255,255,255,.08);
+    --txt: #e9f3ee; --sub: #8fa8a0; --verde: #9dff3c; --rosa: #ff4d9d; --ouro: #ffd43b; --azul: #4dd2ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: radial-gradient(ellipse at top, #0f2a3a, var(--fundo) 60%); color: var(--txt); font: 15px/1.4 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; display: grid; gap: 18px; grid-template-columns: 1.4fr 1fr; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header h1 { font-size: 26px; font-weight: 900; color: var(--verde); letter-spacing: .5px; }
+  .chip { background: var(--card); border: 1px solid var(--borda); border-radius: 999px; padding: 5px 14px; color: var(--sub); font-size: 13px; }
+  .chip b { color: var(--txt); }
+  header a { margin-left: auto; color: var(--azul); text-decoration: none; font-weight: 700; }
+  section { background: linear-gradient(180deg, var(--card2), var(--card)); border: 1px solid var(--borda); border-radius: 28px; padding: 20px; }
+  h2 { font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--sub); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+  /* player */
+  .agora { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .disco { width: 54px; height: 54px; border-radius: 50%; flex: 0 0 auto; background: radial-gradient(circle, #111 0 18%, var(--rosa) 19% 27%, #111 28% 100%); border: 2px solid rgba(255,255,255,.3); }
+  .disco.gira { animation: gira 2s linear infinite; }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  .agora-txt { min-width: 0; }
+  .agora-titulo { font-size: 18px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .agora-sub { color: var(--sub); font-size: 13px; }
+  .controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  button { font: inherit; cursor: pointer; border: none; color: var(--txt); background: rgba(255,255,255,.08); border-radius: 999px; padding: 9px 16px; font-weight: 700; transition: background .15s, transform .1s; }
+  button:hover { background: rgba(255,255,255,.16); }
+  button:active { transform: scale(.96); }
+  button.redondo { width: 46px; height: 46px; padding: 0; display: grid; place-items: center; font-size: 18px; }
+  button.grande { width: 58px; height: 58px; font-size: 22px; background: var(--verde); color: #0a2a10; }
+  button.ativo { background: var(--verde); color: #0a2a10; }
+  button.perigo:hover { background: rgba(255,77,157,.3); }
+  .vol { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--sub); }
+  input[type=range] { accent-color: var(--verde); width: 140px; }
+  .modos { display: flex; gap: 8px; margin: 16px 0 6px; flex-wrap: wrap; }
+  .aviso { margin-top: 10px; padding: 10px 14px; border-radius: 18px; background: rgba(255,212,59,.1); color: var(--ouro); font-size: 13px; }
+  .aviso[hidden] { display: none; }
+
+  /* upload */
+  .soltar { border: 2px dashed rgba(157,255,60,.35); border-radius: 24px; padding: 22px; text-align: center; color: var(--sub); cursor: pointer; transition: background .2s, border-color .2s; margin-bottom: 14px; }
+  .soltar.em-cima { background: rgba(157,255,60,.08); border-color: var(--verde); color: var(--txt); }
+  .soltar b { color: var(--verde); }
+  .progresso { font-size: 13px; color: var(--sub); margin: -6px 0 12px; min-height: 18px; }
+
+  /* lista */
+  .lista { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .faixa { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border: 1px solid transparent; border-radius: 999px; padding: 6px 8px 6px 6px; }
+  .faixa.tocando { border-color: var(--verde); background: rgba(157,255,60,.08); }
+  .faixa .num { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); font-weight: 800; font-size: 13px; flex: 0 0 auto; }
+  .faixa.tocando .num { background: var(--verde); color: #0a2a10; }
+  .faixa input { flex: 1 1 auto; min-width: 0; background: transparent; border: none; color: var(--txt); font: inherit; font-weight: 600; padding: 6px 8px; border-radius: 999px; }
+  .faixa input:focus { outline: none; background: rgba(255,255,255,.07); }
+  .faixa button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; font-size: 14px; flex: 0 0 auto; }
+  .vazio { color: var(--sub); text-align: center; padding: 18px; }
+
+  /* resumo */
+  .numeros { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .num-card { background: rgba(255,255,255,.04); border-radius: 22px; padding: 12px 16px; }
+  .num-card .v { font-size: 26px; font-weight: 900; }
+  .num-card .r { color: var(--sub); font-size: 12px; text-transform: uppercase; letter-spacing: .8px; }
+  .tops { display: grid; gap: 14px; margin-top: 16px; }
+  .top h3 { font-size: 13px; color: var(--sub); letter-spacing: 1px; margin-bottom: 6px; }
+  .top ol { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .top li { display: flex; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.04); border-radius: 999px; padding: 6px 14px; }
+  .top li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top.doa li span:last-child { color: var(--ouro); font-weight: 800; }
+  .top.cur li span:last-child { color: #ff8fc4; font-weight: 800; }
+  .dica { color: var(--sub); font-size: 12px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🐸 Painel da Festa</h1>
+    <span class="chip">modo <b id="modo">—</b></span>
+    <span class="chip" id="conexao">conectando…</span>
+    <a href="/" target="_blank">abrir overlay ↗</a>
+  </header>
+
+  <!-- PLAYER + PLAYLIST -->
+  <section>
+    <h2>🎵 Música</h2>
+    <div class="agora">
+      <div class="disco" id="disco"></div>
+      <div class="agora-txt">
+        <div class="agora-titulo" id="agora-titulo">—</div>
+        <div class="agora-sub" id="agora-sub">aguardando o overlay…</div>
+      </div>
+    </div>
+    <div class="controles">
+      <button class="redondo" id="btn-ant" title="Anterior">⏮</button>
+      <button class="redondo grande" id="btn-play" title="Tocar / pausar">⏸</button>
+      <button class="redondo" id="btn-prox" title="Próxima">⏭</button>
+      <button id="btn-aleatorio" title="Ordem aleatória">🔀 aleatório</button>
+      <label class="vol">🔊 <input type="range" id="volume" min="0" max="1" step="0.01" /></label>
+    </div>
+    <div class="modos">
+      <button id="modo-playlist">▶ Tocar minha playlist</button>
+      <button id="modo-gerada">🥁 Batida gerada (sem copyright)</button>
+    </div>
+    <div class="aviso" id="aviso-som" hidden>O overlay ainda não liberou o som. No OBS isso é automático; no navegador, clique uma vez na página do overlay.</div>
+    <div class="aviso" id="aviso-copy">Música com direitos autorais pode fazer a TikTok mutar ou derrubar a live. Prefira faixas royalty-free ou a batida gerada.</div>
+  </section>
+
+  <!-- RESUMO DA LIVE -->
+  <section style="grid-row: span 2">
+    <h2>📊 Resumo da live</h2>
+    <div class="numeros">
+      <div class="num-card"><div class="v" id="s-viewers">0</div><div class="r">assistindo agora</div></div>
+      <div class="num-card"><div class="v" id="s-pico">0</div><div class="r">pico de viewers</div></div>
+      <div class="num-card"><div class="v" id="s-likes">0</div><div class="r">curtidas</div></div>
+      <div class="num-card"><div class="v" id="s-moedas">0</div><div class="r">moedas em presentes</div></div>
+      <div class="num-card"><div class="v" id="s-presentes">0</div><div class="r">presentes</div></div>
+      <div class="num-card"><div class="v" id="s-entradas">0</div><div class="r">entradas</div></div>
+      <div class="num-card"><div class="v" id="s-seguidores">0</div><div class="r">novos seguidores</div></div>
+      <div class="num-card"><div class="v" id="s-comentarios">0</div><div class="r">comentários</div></div>
+    </div>
+    <div class="tops">
+      <div class="top doa"><h3>TOP 5 DOADORES</h3><ol id="top-doadores"></ol></div>
+      <div class="top cur"><h3>TOP 5 CURTIDORES</h3><ol id="top-curtidores"></ol></div>
+    </div>
+    <p class="dica">Contado desde que o servidor ligou (<span id="s-minutos">0</span> min). Os números oficiais completos ficam no LIVE Center da TikTok.</p>
+  </section>
+
+  <section>
+    <h2>📃 Playlist</h2>
+    <div class="soltar" id="soltar">Arraste as músicas aqui ou <b>clique pra escolher</b><br><small>mp3, ogg, wav ou m4a · até 60 MB cada</small></div>
+    <input type="file" id="arquivo" accept=".mp3,.ogg,.wav,.m4a,audio/*" multiple hidden />
+    <div class="progresso" id="progresso"></div>
+    <ol class="lista" id="lista"></ol>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let pl = { faixas: [], modo: 'gerada', volume: 0.6, aleatorio: false, tocando: true };
+let agora = null;
+
+async function api(metodo, url, corpo, headers = {}) {
+  const r = await fetch(url, { method: metodo, body: corpo, headers });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erro || r.statusText);
+  return j;
+}
+const postJson = (url, obj) => api('POST', url, JSON.stringify(obj), { 'Content-Type': 'application/json' });
+
+// ---------- render ----------
+function render() {
+  const lista = $('#lista');
+  if (!pl.faixas.length) {
+    lista.innerHTML = '<li class="vazio">Nenhuma música ainda. Enquanto isso toca a batida gerada.</li>';
+  } else {
+    lista.innerHTML = '';
+    pl.faixas.forEach((f, i) => {
+      const li = document.createElement('li');
+      const tocandoEsta = agora && agora.modo === 'playlist' && agora.idx === i;
+      li.className = 'faixa' + (tocandoEsta ? ' tocando' : '');
+      li.innerHTML = `<span class="num">${tocandoEsta ? '♪' : i + 1}</span>
+        <input value="" title="Nome que aparece na live" />
+        <button title="Tocar agora">▶</button>
+        <button title="Subir">▲</button>
+        <button title="Descer">▼</button>
+        <button class="perigo" title="Apagar">✕</button>`;
+      const inp = li.querySelector('input');
+      inp.value = f.titulo;
+      inp.addEventListener('change', () => { f.titulo = inp.value.trim() || f.arquivo; salvar(); });
+      const [bTocar, bSobe, bDesce, bApaga] = li.querySelectorAll('button');
+      bTocar.onclick = () => postJson('/api/player', { acao: 'tocar', idx: i });
+      bSobe.onclick = () => mover(i, -1);
+      bDesce.onclick = () => mover(i, 1);
+      bApaga.onclick = async () => {
+        if (!confirm(`Apagar "${f.titulo}" do computador e da playlist?`)) return;
+        pl = (await api('DELETE', '/api/musicas/' + encodeURIComponent(f.arquivo))).playlist; render();
+      };
+      lista.appendChild(li);
+    });
+  }
+  $('#volume').value = pl.volume;
+  $('#btn-aleatorio').classList.toggle('ativo', !!pl.aleatorio);
+  $('#modo-playlist').classList.toggle('ativo', pl.modo === 'playlist');
+  $('#modo-gerada').classList.toggle('ativo', pl.modo !== 'playlist');
+  renderAgora();
+}
+
+function renderAgora() {
+  const tocando = agora ? agora.tocando : false;
+  $('#agora-titulo').textContent = agora ? agora.titulo : '—';
+  $('#agora-sub').textContent = !agora ? 'aguardando o overlay…'
+    : (tocando ? (agora.modo === 'playlist' ? 'tocando da playlist' : 'tocando a batida gerada') : 'pausado');
+  $('#disco').classList.toggle('gira', !!tocando);
+  $('#btn-play').textContent = pl.tocando ? '⏸' : '▶';
+  $('#aviso-som').hidden = !agora || agora.liberado;
+}
+
+async function mover(i, d) {
+  const j = i + d;
+  if (j < 0 || j >= pl.faixas.length) return;
+  [pl.faixas[i], pl.faixas[j]] = [pl.faixas[j], pl.faixas[i]];
+  render(); salvar();
+}
+async function salvar(extra = {}) {
+  pl = (await postJson('/api/playlist', { faixas: pl.faixas, ...extra })).playlist;
+  render();
+}
+
+// ---------- controles ----------
+$('#btn-play').onclick = () => { pl.tocando = !pl.tocando; renderAgora(); postJson('/api/player', { acao: pl.tocando ? 'tocar' : 'pausar' }); };
+$('#btn-prox').onclick = () => postJson('/api/player', { acao: 'proxima' });
+$('#btn-ant').onclick = () => postJson('/api/player', { acao: 'anterior' });
+$('#btn-aleatorio').onclick = () => salvar({ aleatorio: !pl.aleatorio });
+$('#modo-playlist').onclick = () => {
+  if (!pl.faixas.length) return alert('Adicione pelo menos uma música na playlist primeiro.');
+  salvar({ modo: 'playlist' });
+};
+$('#modo-gerada').onclick = () => salvar({ modo: 'gerada' });
+let volTimer;
+$('#volume').oninput = (e) => { clearTimeout(volTimer); const v = Number(e.target.value); volTimer = setTimeout(() => salvar({ volume: v }), 120); };
+
+// ---------- upload ----------
+const soltar = $('#soltar'), arquivo = $('#arquivo');
+soltar.onclick = () => arquivo.click();
+arquivo.onchange = () => enviar([...arquivo.files]);
+soltar.addEventListener('dragover', (e) => { e.preventDefault(); soltar.classList.add('em-cima'); });
+soltar.addEventListener('dragleave', () => soltar.classList.remove('em-cima'));
+soltar.addEventListener('drop', (e) => { e.preventDefault(); soltar.classList.remove('em-cima'); enviar([...e.dataTransfer.files]); });
+
+async function enviar(arquivos) {
+  const prog = $('#progresso');
+  for (let i = 0; i < arquivos.length; i++) {
+    const f = arquivos[i];
+    prog.textContent = `Enviando ${i + 1}/${arquivos.length}: ${f.name}…`;
+    try {
+      const r = await api('POST', '/api/musicas', f, { 'X-Arquivo': encodeURIComponent(f.name) });
+      pl = r.playlist; render();
+    } catch (e) { prog.textContent = `Erro em ${f.name}: ${e.message}`; await new Promise((r) => setTimeout(r, 2000)); }
+  }
+  prog.textContent = arquivos.length ? 'Pronto! ✔' : '';
+  arquivo.value = '';
+  setTimeout(() => { if (prog.textContent === 'Pronto! ✔') prog.textContent = ''; }, 2500);
+}
+
+// ---------- resumo ----------
+const fmt = (n) => Number(n || 0).toLocaleString('pt-BR');
+function renderStats(s) {
+  for (const k of ['viewers', 'likes', 'moedas', 'presentes', 'entradas', 'seguidores', 'comentarios', 'minutos']) $('#s-' + k).textContent = fmt(s[k]);
+  $('#s-pico').textContent = fmt(s.picoViewers);
+  const li = (x) => `<li><span>${x.name.replace(/[<>&]/g, '')}</span><span>${fmt(x.valor)}</span></li>`;
+  $('#top-doadores').innerHTML = s.doadores.map(li).join('') || '<li><span>ninguém ainda</span><span></span></li>';
+  $('#top-curtidores').innerHTML = s.curtidores.map(li).join('') || '<li><span>ninguém ainda</span><span></span></li>';
+}
+async function atualizaEstado(inicial) {
+  try {
+    const e = await api('GET', '/api/estado');
+    $('#modo').textContent = e.modo === 'live' ? 'live @' + e.usuario : 'demo';
+    renderStats(e.stats);
+    if (inicial) { pl = e.playlist; agora = e.tocando; render(); }
+  } catch {}
+}
+atualizaEstado(true);
+setInterval(() => atualizaEstado(false), 3000);
+
+// ---------- tempo real ----------
+function conectar() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => { $('#conexao').innerHTML = '🟢 <b>conectado</b>'; ws.send(JSON.stringify({ t: 'sou', papel: 'admin' })); };
+  ws.onclose = () => { $('#conexao').textContent = '🟡 reconectando…'; setTimeout(conectar, 1500); };
+  ws.onmessage = (m) => {
+    let ev; try { ev = JSON.parse(m.data); } catch { return; }
+    if (ev.t === 'playlist') { pl = ev.estado; render(); }
+    if (ev.t === 'tocando') { agora = ev; render(); }
+  };
+}
+conectar();
+</script>
+</body>
+</html>
