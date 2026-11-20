@@ -106,6 +106,10 @@ Música que está no **celular**: passe o arquivo pro computador (cabo USB, What
 
 O painel só abre no próprio computador (não fica exposto na rede).
 
+## 4.2 Monitor: live e painel lado a lado
+
+Abra `http://localhost:8080/monitor`. Na esquerda aparece a tela da live (9:16) e na direita o painel, tudo numa janela só. A tela da esquerda fica **sem som** pra não tocar a música em dobro com o OBS; tem um botão em cima pra ligar o som ali se você não estiver usando o OBS.
+
 ---
 
 ## 5. Deixar com a SUA cara (editar)
@@ -160,7 +164,8 @@ Em `brand.logo` aponte pra uma imagem sua em `overlay/assets/` (ex:
 ```
 festa-na-lagoa/
 ├── admin/
-│   └── index.html    painel: playlist + resumo da live
+│   ├── index.html    painel: playlist + resumo da live
+│   └── monitor.html  live + painel lado a lado
 ├── server/
 │   ├── index.js      servidor: serve o overlay + repassa eventos da live
 │   └── config.js     modo (demo/live), usuário, porta

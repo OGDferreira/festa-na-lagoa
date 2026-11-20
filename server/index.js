@@ -209,6 +209,10 @@ const server = http.createServer((req, res) => {
   let urlPath;
   try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); return res.end(); }
   if (urlPath.startsWith('/api/')) return api(req, res, urlPath);
+  if (urlPath === '/monitor') {
+    if (!local(req)) { res.writeHead(403); return res.end('monitor so no computador da live'); }
+    return servirArquivo(res, ADMIN_DIR, '/monitor.html');
+  }
   if (urlPath === '/admin' || urlPath.startsWith('/admin/')) {
     if (!local(req)) { res.writeHead(403); return res.end('painel so no computador da live'); }
     let sub = urlPath.slice('/admin'.length) || '/';
@@ -376,6 +380,7 @@ server.listen(PORT, () => {
   console.log('  FESTA NA LAGOA — overlay rodando');
   console.log('  Overlay:   http://localhost:' + PORT);
   console.log('  Painel:    http://localhost:' + PORT + '/admin   (musica e resumo da live)');
+  console.log('  Monitor:   http://localhost:' + PORT + '/monitor (live + painel lado a lado)');
   console.log('  Modo:      ' + MODE + (MODE === 'live' ? '  (@' + USERNAME + ')' : ''));
   console.log('  No OBS:    Browser Source 1080x1920 -> http://localhost:' + PORT);
   console.log('========================================================');

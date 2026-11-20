@@ -216,17 +216,21 @@ function atualizaCamera(dt) {
 let rede;
 const audio = criarAudio({
   bpm: CONFIG.festa.bpm,
-  onTocando: (info) => { ui.tocando(info); rede && rede.enviar({ t: 'tocando', ...info }); },
+  onTocando: (info) => { ui.tocando(info); if (!MUDO) rede && rede.enviar({ t: 'tocando', ...info }); },
   onLiberou: () => ui.escondeBotaoSom()
 });
 function tentaSom() {
   if (!audio.liberar()) ui.botaoSom(() => audio.liberar());
   else ui.escondeBotaoSom();
 }
-window.addEventListener('pointerdown', () => { if (audio.liberar()) ui.escondeBotaoSom(); });
-tentaSom();
-// OBS libera o som sozinho; no navegador comum aparece o botao
-setTimeout(() => { if (!audio.liberado) ui.botaoSom(() => audio.liberar()); }, 800);
+// ?mudo=1 = copia so pra assistir (tela /monitor): nao toca som nenhum,
+// pra nao dobrar a musica com o OBS. A danca segue no ritmo do bpm.
+const MUDO = new URLSearchParams(location.search).has('mudo');
+if (!MUDO) {
+  window.addEventListener('pointerdown', () => { if (audio.liberar()) ui.escondeBotaoSom(); });
+  tentaSom();
+  setTimeout(() => { if (!audio.liberado) ui.botaoSom(() => audio.liberar()); }, 800);
+}
 
 // ---- loop ----------------------------------------------------------------
 const clock = new THREE.Clock();
@@ -254,5 +258,7 @@ rede = conectarEventos(CONFIG.ws, {
   viewers: (ev) => ui.viewers(ev.count),
   social: () => { },
   playlist: (ev) => audio.setEstado(ev.estado),
-  player: (ev) => audio.comando(ev.acao, ev.idx)
+  player: (ev) => audio.comando(ev.acao, ev.idx),
+  // na copia muda, mostra o que esta tocando la no OBS
+  tocando: (ev) => { if (MUDO) ui.tocando(ev); }
 }, (st) => { if (!st.conectado) ui.status('🟡 reconectando...'); });

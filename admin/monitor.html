@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monitor da Festa</title>
+<style>
+  :root { --fundo: #07121c; --borda: rgba(255,255,255,.12); --txt: #e9f3ee; --sub: #8fa8a0; --verde: #9dff3c; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { background: radial-gradient(ellipse at top left, #10283a, var(--fundo) 60%); color: var(--txt); font: 14px/1.4 'Segoe UI', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex: 0 0 auto; flex-wrap: wrap; }
+  header h1 { font-size: 18px; font-weight: 900; color: var(--verde); }
+  .chip { border: 1px solid var(--borda); border-radius: 999px; padding: 4px 12px; color: var(--sub); font-size: 12px; }
+  button { margin-left: auto; font: inherit; font-weight: 700; cursor: pointer; border: none; border-radius: 999px; padding: 7px 14px; background: rgba(255,255,255,.1); color: var(--txt); }
+  button.ativo { background: var(--verde); color: #0a2a10; }
+  main { flex: 1 1 auto; min-height: 0; display: flex; gap: 14px; padding: 0 14px 14px; }
+  .live { flex: 0 0 auto; height: 100%; aspect-ratio: 9 / 16; max-width: 48vw; border-radius: 26px; overflow: hidden; border: 2px solid rgba(157,255,60,.45); box-shadow: 0 0 30px rgba(157,255,60,.15); position: relative; }
+  .live .tag { position: absolute; left: 12px; top: 12px; z-index: 2; background: #ff2d55; color: #fff; font-weight: 900; font-size: 11px; letter-spacing: 1px; padding: 3px 10px; border-radius: 999px; pointer-events: none; }
+  .painel { flex: 1 1 auto; min-width: 0; border-radius: 26px; overflow: hidden; border: 1px solid var(--borda); }
+  iframe { width: 100%; height: 100%; border: 0; display: block; background: transparent; }
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    main { flex-direction: column; }
+    .live { height: 80vh; max-width: none; align-self: center; }
+    .painel { min-height: 90vh; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🐸 Monitor da Festa</h1>
+    <span class="chip">esquerda: o que vai pra live · direita: painel</span>
+    <button id="som" title="A cópia daqui fica muda pra não dobrar a música com o OBS">🔇 sem som aqui</button>
+  </header>
+  <main>
+    <div class="live"><span class="tag">AO VIVO</span><iframe id="overlay" src="/?mudo=1" title="Tela da live"></iframe></div>
+    <div class="painel"><iframe src="/admin" title="Painel"></iframe></div>
+  </main>
+<script>
+  // Por padrao a tela da esquerda fica muda (quem toca e o OBS).
+  // Se nao estiver usando o OBS agora, da pra ligar o som aqui.
+  const btn = document.getElementById('som'), ov = document.getElementById('overlay');
+  let comSom = false;
+  btn.onclick = () => {
+    comSom = !comSom;
+    if (comSom && !confirm('Ligar o som aqui? Se o OBS também estiver aberto, a música vai tocar em dobro.')) { comSom = false; return; }
+    ov.src = comSom ? '/' : '/?mudo=1';
+    btn.textContent = comSom ? '🔊 com som aqui' : '🔇 sem som aqui';
+    btn.classList.toggle('ativo', comSom);
+  };
+</script>
+</body>
+</html>
