@@ -14,6 +14,8 @@ export function criarAudio({ bpm = 120, onTocando, onLiberou } = {}) {
 
   let estado = { faixas: [], modo: 'gerada', volume: 0.6, aleatorio: false, tocando: true, atual: 0 };
   let liberado = false;     // navegador ja deixou tocar som?
+  let micAberto = false;    // admin falando: musica abaixa
+  const volAlvo = () => estado.volume * (micAberto ? 0.2 : 1);
   let geradaTimer = null;
   let proxBatida = 0, passoGerado = 0;
 
@@ -120,7 +122,7 @@ export function criarAudio({ bpm = 120, onTocando, onLiberou } = {}) {
   function aplicar() {
     if (!liberado) return;
     garanteCtx();
-    master.gain.setTargetAtTime(estado.volume, ctx.currentTime, 0.05);
+    master.gain.setTargetAtTime(volAlvo(), ctx.currentTime, 0.05);
     if (!estado.tocando) { el.pause(); desligaGerada(); avisa(); return; }
     if (usandoPlaylist()) {
       desligaGerada();
@@ -224,8 +226,8 @@ export function criarAudio({ bpm = 120, onTocando, onLiberou } = {}) {
     saida.connect(ctx.destination); // fora do master: o volume da musica nao abafa o efeito
     // abaixa a musica rapidinho pro efeito aparecer
     master.gain.cancelScheduledValues(tm);
-    master.gain.setTargetAtTime(estado.volume * 0.35, tm, 0.03);
-    master.gain.setTargetAtTime(estado.volume, tm + 1.3, 0.25);
+    master.gain.setTargetAtTime(volAlvo() * 0.35, tm, 0.03);
+    master.gain.setTargetAtTime(volAlvo(), tm + 1.3, 0.25);
 
     if (arquivo) {
       const a = arquivosEfeito[arquivo] || (arquivosEfeito[arquivo] = new Audio(arquivo));
@@ -273,5 +275,11 @@ export function criarAudio({ bpm = 120, onTocando, onLiberou } = {}) {
     }
   }
 
-  return { setEstado, comando, liberar, ritmo, efeito, get liberado() { return liberado; } };
+  // mic do admin aberto: musica desce suave pra ~20%; fechou, volta
+  function abaixar(on) {
+    micAberto = on;
+    if (ctx) master.gain.setTargetAtTime(volAlvo(), ctx.currentTime, on ? 0.25 : 0.6);
+  }
+
+  return { setEstado, comando, liberar, ritmo, efeito, abaixar, get liberado() { return liberado; } };
 }

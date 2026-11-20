@@ -73,6 +73,31 @@
   .top.doa li span:last-child { color: var(--ouro); font-weight: 800; }
   .top.cur li span:last-child { color: #ff8fc4; font-weight: 800; }
   .dica { color: var(--sub); font-size: 12px; margin-top: 14px; }
+
+  /* mic */
+  .mic { width: 100%; padding: 18px; font-size: 20px; border-radius: 999px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .mic.aberto { background: #ff2d55; color: #fff; box-shadow: 0 0 30px rgba(255,45,85,.6); animation: pulsoMic 1.2s ease-in-out infinite; }
+  @keyframes pulsoMic { 50% { box-shadow: 0 0 10px rgba(255,45,85,.3); } }
+  details { margin-top: 12px; color: var(--sub); font-size: 13px; }
+  details summary { cursor: pointer; }
+  .campo { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+  .campo input { background: rgba(255,255,255,.06); border: 1px solid var(--borda); border-radius: 999px; padding: 8px 14px; color: var(--txt); font: inherit; }
+  .obs-status { margin-top: 8px; font-size: 13px; }
+
+  /* pedidos */
+  .pedido { display: flex; align-items: center; gap: 10px; background: rgba(176,124,255,.1); border-radius: 999px; padding: 6px 6px 6px 16px; }
+  .pedido .txt { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pedido .quem { color: var(--sub); font-size: 12px; }
+  .pedido button { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; flex: 0 0 auto; }
+
+  /* presentes */
+  .presente { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.04); border-radius: 999px; padding: 6px 14px 6px 6px; }
+  .presente img, .presente .ico { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: rgba(255,212,59,.15); flex: 0 0 auto; }
+  .presente .nome { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .presente .tier { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.1); }
+  .presente .tier.medio { background: rgba(77,210,255,.25); }
+  .presente .tier.epico { background: rgba(255,212,59,.35); color: var(--ouro); }
+  .presente .moedas { color: var(--ouro); font-weight: 800; }
 </style>
 </head>
 <body>
@@ -109,6 +134,34 @@
     <div class="aviso" id="aviso-copy">Música com direitos autorais pode fazer a TikTok mutar ou derrubar a live. Prefira faixas royalty-free ou a batida gerada.</div>
   </section>
 
+  <!-- MIC -->
+  <section>
+    <h2>🎙️ Falar com a galera</h2>
+    <button class="mic" id="btn-mic">🎙️ Abrir meu mic</button>
+    <p class="dica">Enquanto o mic estiver aberto a música abaixa pra 20% e volta sozinha quando você fechar. Atalho: tecla <b>M</b>.</p>
+    <details>
+      <summary>Ligar e desligar o mic do OBS junto (opcional)</summary>
+      <p style="margin-top:8px">No OBS: <b>Ferramentas → Configurações do servidor WebSocket</b> → marque "Ativar servidor WebSocket" e copie a senha. Assim o botão acima também liga/desliga o seu microfone no OBS.</p>
+      <label class="campo">Senha do WebSocket do OBS <input type="password" id="obs-senha" autocomplete="off" /></label>
+      <label class="campo">Nome da fonte do microfone no OBS <input id="obs-fonte" placeholder="Mic/Aux" /></label>
+      <button style="margin-top:10px" id="obs-conectar">Conectar no OBS</button>
+      <div class="obs-status" id="obs-status">OBS não conectado: o botão só abaixa a música.</div>
+    </details>
+  </section>
+
+  <!-- TESTES -->
+  <section>
+    <h2>🧪 Testar efeitos</h2>
+    <div class="controles">
+      <button data-teste="comentario">💬 Comentário</button>
+      <button data-teste="pedido">🙋 Pedido de música</button>
+      <button data-teste="medio">🎊 Presente médio</button>
+      <button data-teste="epico">🎁 Presente épico</button>
+      <button data-teste="mergulho">🫧 Mergulhar</button>
+    </div>
+    <p class="dica">Aparece na tela da live (e no OBS). Use antes de entrar ao vivo pra conferir.</p>
+  </section>
+
   <!-- RESUMO DA LIVE -->
   <section style="grid-row: span 2">
     <h2>📊 Resumo da live</h2>
@@ -127,6 +180,18 @@
       <div class="top cur"><h3>TOP 5 CURTIDORES</h3><ol id="top-curtidores"></ol></div>
     </div>
     <p class="dica">Contado desde que o servidor ligou (<span id="s-minutos">0</span> min). Os números oficiais completos ficam no LIVE Center da TikTok.</p>
+  </section>
+
+  <section>
+    <h2>🙋 Pedidos de música <span class="chip" id="qtd-pedidos">0</span></h2>
+    <p class="dica" style="margin:-6px 0 12px">A galera pede digitando <b>!musica nome da música</b> no chat.</p>
+    <ol class="lista" id="pedidos"></ol>
+  </section>
+
+  <section>
+    <h2>🎁 Presentes recebidos</h2>
+    <p class="dica" style="margin:-6px 0 12px">Cada presente que chega na live aparece aqui com o valor em moedas e o tamanho do efeito (pequeno, médio ou épico).</p>
+    <ol class="lista" id="presentes"></ol>
   </section>
 
   <section>
@@ -260,11 +325,118 @@ async function atualizaEstado(inicial) {
     const e = await api('GET', '/api/estado');
     $('#modo').textContent = e.modo === 'live' ? 'live @' + e.usuario : 'demo';
     renderStats(e.stats);
-    if (inicial) { pl = e.playlist; agora = e.tocando; render(); }
+    renderPresentes(e.stats.porPresente);
+    if (inicial) { pl = e.playlist; agora = e.tocando; render(); pedidos = e.pedidos || []; renderPedidos(); if (e.mic) setMic(true); }
   } catch {}
 }
 atualizaEstado(true);
 setInterval(() => atualizaEstado(false), 3000);
+
+// ---------- pedidos de musica ----------
+let pedidos = [];
+function renderPedidos() {
+  $('#qtd-pedidos').textContent = pedidos.length;
+  const ol = $('#pedidos');
+  if (!pedidos.length) { ol.innerHTML = '<li class="vazio">Nenhum pedido ainda.</li>'; return; }
+  ol.innerHTML = '';
+  pedidos.forEach((p) => {
+    const li = document.createElement('li');
+    li.className = 'pedido';
+    const txt = document.createElement('div'); txt.className = 'txt';
+    const l1 = document.createElement('div'); l1.textContent = '🎵 ' + p.musica;
+    const l2 = document.createElement('div'); l2.className = 'quem';
+    l2.textContent = 'pedido por ' + p.user.name + ' · ' + new Date(p.quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    txt.append(l1, l2);
+    const ok = document.createElement('button'); ok.textContent = '✓'; ok.title = 'Já toquei / tirar da fila';
+    ok.onclick = async () => { pedidos = (await api('DELETE', '/api/pedidos/' + p.id)).pedidos; renderPedidos(); };
+    li.append(txt, ok);
+    ol.appendChild(li);
+  });
+}
+
+// ---------- presentes recebidos ----------
+function tierDe(m) { return m >= 1000 ? 'epico' : m >= 100 ? 'medio' : 'pequeno'; }
+function icone() { const s = document.createElement('span'); s.className = 'ico'; s.textContent = '🎁'; return s; }
+function renderPresentes(lista) {
+  const ol = $('#presentes');
+  if (!lista || !lista.length) { ol.innerHTML = '<li class="vazio">Nenhum presente ainda.</li>'; return; }
+  ol.innerHTML = '';
+  for (const g of lista) {
+    const li = document.createElement('li'); li.className = 'presente';
+    let ico = icone();
+    if (g.imagem) { ico = document.createElement('img'); ico.src = g.imagem; ico.onerror = () => ico.replaceWith(icone()); }
+    const nome = document.createElement('span'); nome.className = 'nome'; nome.textContent = g.nome + '  ×' + g.vezes;
+    const t = tierDe(g.unidade);
+    const tier = document.createElement('span'); tier.className = 'tier ' + t; tier.textContent = t === 'epico' ? 'épico' : t === 'medio' ? 'médio' : 'pequeno';
+    const moedas = document.createElement('span'); moedas.className = 'moedas'; moedas.textContent = '🪙 ' + fmt(g.unidade) + ' cada';
+    li.append(ico, nome, tier, moedas);
+    ol.appendChild(li);
+  }
+}
+
+// ---------- MIC (abaixa a musica + opcional: mic do OBS) ----------
+let micAberto = false;
+async function setMic(on) {
+  micAberto = on;
+  $('#btn-mic').classList.toggle('aberto', on);
+  $('#btn-mic').textContent = on ? '🔴 Mic aberto: clique pra fechar' : '🎙️ Abrir meu mic';
+  try { await postJson('/api/mic', { aberto: on }); } catch {}
+  obsMute(!on);
+}
+$('#btn-mic').onclick = () => setMic(!micAberto);
+document.addEventListener('keydown', (e) => {
+  if (e.key && e.key.toLowerCase() === 'm' && !/input|textarea/i.test(e.target.tagName)) setMic(!micAberto);
+});
+
+// OBS WebSocket v5 (opcional). A senha fica so neste navegador.
+let obs = null, obsPronto = false, reqId = 0;
+const guarda = {
+  get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+$('#obs-senha').value = guarda.get('obsSenha');
+$('#obs-fonte').value = guarda.get('obsFonte');
+async function sha256b64(txt) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  return btoa(String.fromCharCode(...new Uint8Array(h)));
+}
+function obsStatus(t) { $('#obs-status').textContent = t; }
+function fonteMic() { return $('#obs-fonte').value.trim() || 'Mic/Aux'; }
+function conectarOBS() {
+  const senha = $('#obs-senha').value;
+  guarda.set('obsSenha', senha); guarda.set('obsFonte', $('#obs-fonte').value);
+  try { if (obs) obs.close(); } catch {}
+  obsPronto = false;
+  obsStatus('Conectando no OBS…');
+  obs = new WebSocket('ws://127.0.0.1:4455');
+  obs.onmessage = async (m) => {
+    const msg = JSON.parse(m.data);
+    if (msg.op === 0) {
+      const d = { rpcVersion: 1 };
+      if (msg.d.authentication) {
+        const seg = await sha256b64(senha + msg.d.authentication.salt);
+        d.authentication = await sha256b64(seg + msg.d.authentication.challenge);
+      }
+      obs.send(JSON.stringify({ op: 1, d }));
+    } else if (msg.op === 2) {
+      obsPronto = true;
+      obsStatus('🟢 OBS conectado: o botão também liga/desliga o mic "' + fonteMic() + '".');
+      obsMute(!micAberto);
+    } else if (msg.op === 7 && msg.d.requestStatus && !msg.d.requestStatus.result) {
+      obsStatus('⚠️ OBS respondeu: ' + (msg.d.requestStatus.comment || 'erro') + ' (confira o nome da fonte do mic)');
+    }
+  };
+  obs.onclose = (e) => { obsPronto = false; obsStatus(e.code === 4009 ? '⚠️ Senha do OBS errada.' : 'OBS não conectado: o botão só abaixa a música.'); };
+  obs.onerror = () => obsStatus('⚠️ Não achei o OBS. Ele está aberto com o servidor WebSocket ligado?');
+}
+function obsMute(mudo) {
+  if (!obs || !obsPronto) return;
+  obs.send(JSON.stringify({ op: 6, d: { requestType: 'SetInputMute', requestId: 'm' + (++reqId), requestData: { inputName: fonteMic(), inputMuted: mudo } } }));
+}
+$('#obs-conectar').onclick = conectarOBS;
+if (guarda.get('obsSenha') || guarda.get('obsFonte')) conectarOBS();
+
+document.querySelectorAll('[data-teste]').forEach((b) => b.onclick = () => postJson('/api/teste', { tipo: b.dataset.teste }));
 
 // ---------- tempo real ----------
 function conectar() {
@@ -275,6 +447,7 @@ function conectar() {
     let ev; try { ev = JSON.parse(m.data); } catch { return; }
     if (ev.t === 'playlist') { pl = ev.estado; render(); }
     if (ev.t === 'tocando') { agora = ev; render(); }
+    if (ev.t === 'pedidos') { pedidos = ev.lista; renderPedidos(); }
   };
 }
 conectar();

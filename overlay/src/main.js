@@ -8,6 +8,7 @@ import { Sapo } from './frog.js';
 import { criarUI } from './ui.js';
 import { criarAudio } from './audio.js';
 import { conectarEventos } from './events.js';
+import { criarEfeitos } from './efeitos.js';
 
 const cores = CONFIG.cores;
 const palco = document.getElementById('palco');
@@ -31,6 +32,7 @@ window.addEventListener('resize', encaixar);
 encaixar();
 
 const lagoa = criarLagoa(scene, cores, CONFIG.festa);
+const efeitos = criarEfeitos(scene, CONFIG.festa.luzes);
 
 // ---- HUD -----------------------------------------------------------------
 const ui = criarUI(CONFIG);
@@ -111,10 +113,34 @@ function presente(ev) {
 
   ui.gift(ev.user, info, ev.giftName);
   checaDJ();
-  focarPresente(s, info);
+
+  // efeito pelo tamanho do presente (em moedas)
+  const tipo = tierDoPresente(moedas);
+  const onde = s.group.position;
+  if (tipo === 'medio') {
+    efeitos.confete(onde, 140, 1);
+    efeitos.destaque(onde, info.cor || '#ffd43b', 1);
+    focarPresente(s, { nivel: 3 });
+  } else if (tipo === 'epico') {
+    ui.epico(ev.user, ev.giftName || 'presente', moedas, info.emoji);
+    efeitos.confete(onde, 420, 1.5);
+    efeitos.destaque(onde, '#ffd43b', 2);
+    setTimeout(() => efeitos.confete(onde, 260, 1.2), 600);
+    setTimeout(() => efeitos.destaque(onde, '#ff4d9d', 2.5), 400);
+    flash = 1;
+    focarPresente(s, { nivel: 8 });
+    if (CONFIG.efeitos && CONFIG.efeitos.ligado) audio.efeito('fanfarra', CONFIG.efeitos.arquivoCurtidor, CONFIG.efeitos.volume);
+  }
   marcaRanking();
   atualizaMeta();
 }
+
+function tierDoPresente(moedas) {
+  let tipo = 'pequeno';
+  for (const t of (CONFIG.tiersPresente || [])) if (moedas >= t.min) tipo = t.tipo;
+  return tipo;
+}
+let flash = 0; // clarao das luzes no presente epico
 
 // ---- SAPO DJ: quem mais mandou moedas comanda a cabine --------------------
 let dj = null; // Sapo
@@ -182,14 +208,44 @@ function focarPresente(sapo, info) {
   if (!CONFIG.camera.focarPresente) return;
   const agora = performance.now() / 1000;
   if (agora < livreDeFocoAte && info.nivel < 3) return;
+  // durante o mergulho so presente epico (ou novo DJ) puxa a camera de volta
+  if (agora < mergulhoAte) { if (info.nivel < 5) return; mergulhoAte = 0; }
   foco = sapo;
   focoAte = agora + CONFIG.camera.tempoFoco + info.nivel * 0.4;
   livreDeFocoAte = focoAte + 8;
 }
 
+// ---- MERGULHO: de vez em quando a camera desce pro fundo do lago ---------
+const MG = CONFIG.mergulho || { ligado: false };
+const sorteiaMergulho = () => performance.now() / 1000 + MG.acadaSeg[0] + Math.random() * (MG.acadaSeg[1] - MG.acadaSeg[0]);
+let proxMergulho = MG.ligado ? sorteiaMergulho() : Infinity;
+let mergulhoAte = 0;
+let forcarMergulho = false;
+let fundoF = 0; // 0..1 (o quanto a camera esta debaixo d'agua)
+function girinos() { return [...sapos.values()].filter((s) => s.visivel && s.ehGirino); }
+
 function atualizaCamera(dt) {
   const agora = performance.now() / 1000;
-  if (foco && agora < focoAte && foco.visivel) {
+  // comeca um mergulho?
+  if ((MG.ligado || forcarMergulho) && !foco && agora >= proxMergulho && mergulhoAte < agora) {
+    if (forcarMergulho || girinos().length >= (MG.minimoGirinos || 1)) { mergulhoAte = agora + MG.duracaoSeg; ui.mergulho(true); }
+    proxMergulho = sorteiaMergulho();
+    forcarMergulho = false;
+  }
+  const mergulhando = agora < mergulhoAte && !foco;
+  if (!mergulhando) ui.mergulho(false);
+  const alvoF = mergulhando ? 1 : 0;
+  fundoF += (alvoF - fundoF) * Math.min(1, dt * 1.2);
+  Sapo.profundidade = fundoF;
+  lagoa.submerso(fundoF);
+
+  if (mergulhando) {
+    // nada devagar em volta, la embaixo, olhando os girinos
+    anguloOrbita += dt * CONFIG.camera.velocidadeGiro * 1.5;
+    const R = 14;
+    posDesejada.set(Math.cos(anguloOrbita) * R, -3.2, Math.sin(anguloOrbita) * R);
+    lookDesejado.set(-Math.cos(anguloOrbita) * 4, -2.2, -Math.sin(anguloOrbita) * 4);
+  } else if (foco && agora < focoAte && foco.visivel) {
     const p = foco.group.position;
     const ang = Math.atan2(p.z, p.x);
     const dist = 9 + foco._escala * 2.6;
@@ -207,7 +263,7 @@ function atualizaCamera(dt) {
     // espaco em cima pros cards
     lookDesejado.set(-Math.cos(anguloOrbita) * 6, 0, -Math.sin(anguloOrbita) * 6);
   }
-  camera.position.lerp(posDesejada, Math.min(1, dt * (foco ? 2.2 : 1.1)));
+  camera.position.lerp(posDesejada, Math.min(1, dt * (foco ? 2.2 : (mergulhando || fundoF > 0.05 ? 0.9 : 1.1))));
   alvoLook.lerp(lookDesejado, Math.min(1, dt * 2));
   camera.lookAt(alvoLook);
 }
@@ -241,11 +297,20 @@ function animar() {
   lagoa.update(t, dt, ritmo, camera);
   ui.batida(ritmo.batida);
   atualizaCamera(dt);
-  for (const s of sapos.values()) if (s.visivel) s.update(dt, t, ritmo, camera);
+  efeitos.update(dt);
+  if (flash > 0) { flash = Math.max(0, flash - dt * 0.35); ritmo.batida = Math.max(ritmo.batida, flash); }
+  for (const s of sapos.values()) {
+    if (!s.visivel) continue;
+    // no fundo do lago so os girinos aparecem
+    s.group.visible = fundoF < 0.5 || s.ehGirino;
+    s.update(dt, t, ritmo, camera);
+  }
   renderer.render(scene, camera);
   requestAnimationFrame(animar);
 }
 animar();
+// pra depurar no console do navegador
+window.__festa = { camera, scene, sapos };
 
 // ---- eventos da live + comandos do admin ---------------------------------
 rede = conectarEventos(CONFIG.ws, {
@@ -254,7 +319,17 @@ rede = conectarEventos(CONFIG.ws, {
   join: (ev) => { entrar(ev.user); ui.join(ev.user); },
   like: (ev) => darLike(ev.user, ev.count || 1),
   gift: (ev) => presente(ev),
-  chat: () => { /* reservado: balao de chat, se quiser depois */ },
+  chat: (ev) => {
+    if (!CONFIG.comentarios || !CONFIG.comentarios.ligado) return;
+    const txt = String(ev.comment || '').trim();
+    if (!txt || txt.startsWith('!')) return; // comandos (ex: !musica) nao viram balao
+    const s = sapos.get(ev.user.id);
+    if (s && s.visivel) s.falar(txt.slice(0, CONFIG.comentarios.maxCaracteres || 70), CONFIG.comentarios.segundos || 6);
+  },
+  pedido: (ev) => ui.pedido(ev.user, ev.musica),
+  mic: (ev) => audio.abaixar(!!ev.aberto),
+  // botao de teste no painel: mergulha agora
+  mergulhar: () => { foco = null; proxMergulho = 0; forcarMergulho = true; },
   viewers: (ev) => ui.viewers(ev.count),
   social: () => { },
   playlist: (ev) => audio.setEstado(ev.estado),

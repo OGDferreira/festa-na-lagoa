@@ -9,12 +9,13 @@ export function criarUI(config) {
   const $ = (s) => document.querySelector(s);
   const el = {
     palco: $('#palco'),
-    logo: $('#logo'),
     doadores: $('#lista-doadores'),
     curtidores: $('#lista-curtidores'),
     toasts: $('#toasts'),
     gift: $('#gift-popup'),
-    viewers: $('#viewers'),
+    chamada: $('#chamada'),
+    epico: $('#epico'),
+    mergulho: $('#mergulho'),
     metaFill: $('#meta-fill'),
     metaFaltam: $('#meta-faltam'),
     tocando: $('#tocando'),
@@ -35,9 +36,6 @@ export function criarUI(config) {
   // ---- preenche textos de marca ----
   function brand() {
     const set = (sel, txt) => document.querySelectorAll(sel).forEach((n) => n.textContent = txt);
-    set('[data-brand-nome]', config.brand.nome);
-    set('[data-brand-chamada]', config.brand.chamada);
-    set('[data-meta-titulo]', config.meta.titulo);
     set('[data-meta-recompensa]', config.meta.recompensa);
     set('[data-titulo-doadores]', config.ranking.tituloDoadores);
     set('[data-titulo-curtidores]', config.ranking.tituloCurtidores);
@@ -46,7 +44,7 @@ export function criarUI(config) {
     raiz.setProperty('--rosa', cores.rosa);
     raiz.setProperty('--mt', config.tela.margemTopo + 'px');
     raiz.setProperty('--mb', config.tela.margemBaixo + 'px');
-    if (config.brand.logo) el.logo.style.backgroundImage = `url('${config.brand.logo}')`;
+    iniciaChamadas();
     ranking('doadores', []);
     ranking('curtidores', []);
   }
@@ -118,7 +116,49 @@ export function criarUI(config) {
     el.metaFaltam.textContent = fmt(Math.max(0, obj - pontos));
   }
 
-  function viewers(n) { el.viewers.textContent = fmt(n); }
+  function viewers() { /* o TikTok ja mostra quantos estao assistindo */ }
+
+  // ---- chamada de baixo: alterna curtir / seguir / pedir musica ----
+  function iniciaChamadas() {
+    const frases = (config.brand.chamadas && config.brand.chamadas.length) ? config.brand.chamadas : [config.brand.chamada];
+    let i = 0;
+    const mostra = () => {
+      el.chamada.classList.add('trocando');
+      setTimeout(() => {
+        el.chamada.textContent = frases[i % frases.length];
+        el.chamada.classList.remove('trocando');
+        i++;
+      }, 350);
+    };
+    mostra();
+    if (frases.length > 1) setInterval(mostra, (config.brand.trocaChamadaSeg || 7) * 1000);
+  }
+
+  // ---- pedido de musica (!musica no chat) ----
+  function pedido(user, musica) {
+    const d = document.createElement('div');
+    d.className = 'toast toast-pedido';
+    d.innerHTML = `${avatar(user)}<span>🎵 <b>${esc(user.name)}</b> pediu: <i>${esc(musica)}</i></span>`;
+    el.toasts.appendChild(d);
+    if (el.toasts.children.length > 4) el.toasts.firstChild.remove();
+    setTimeout(() => d.remove(), 6200);
+  }
+
+  // ---- PRESENTE EPICO: explosao de luz + texto grande ----
+  function epico(user, nomePresente, moedas, emoji) {
+    el.epico.innerHTML = `<div class="epico-luz"></div>
+      <div class="epico-caixa">
+        <div class="epico-topo">🎁 PRESENTE ÉPICO! 🎁</div>
+        <div class="epico-user">${avatar(user)}<span>${esc(user.name)}</span></div>
+        <div class="epico-presente">${emoji || '💎'} ${esc(nomePresente)} · 🪙 ${fmt(moedas)}</div>
+      </div>`;
+    el.epico.classList.remove('ativo'); void el.epico.offsetWidth; el.epico.classList.add('ativo');
+    clearTimeout(epico._t);
+    epico._t = setTimeout(() => { el.epico.classList.remove('ativo'); el.epico.innerHTML = ''; }, 5000);
+  }
+
+  // ---- aviso da vista subaquatica ----
+  function mergulho(on) { el.mergulho.hidden = !on; }
 
   // ---- musica tocando ----
   function tocando(info) {
@@ -159,7 +199,7 @@ export function criarUI(config) {
   }
   function escondeBotaoSom() { el.btnSom.hidden = true; }
 
-  return { brand, join, gift, novoDJ, ranking, meta, viewers, tocando, batida, perereca, status, botaoSom, escondeBotaoSom };
+  return { brand, join, gift, novoDJ, pedido, epico, mergulho, ranking, meta, viewers, tocando, batida, perereca, status, botaoSom, escondeBotaoSom };
 }
 
 function fmt(n) {

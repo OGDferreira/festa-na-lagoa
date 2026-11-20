@@ -72,6 +72,7 @@ export function criarLagoa(scene, cores, festa) {
         gl_FragColor = vec4(col, 0.97);
       }`
   });
+  waterMat.side = THREE.DoubleSide; // da pra ver a superficie de baixo no mergulho
   const water = new THREE.Mesh(new THREE.CircleGeometry(26, 96), waterMat);
   water.rotation.x = -Math.PI / 2;
   scene.add(water);
@@ -97,7 +98,7 @@ export function criarLagoa(scene, cores, festa) {
   // ----- VITORIAS-REGIAS (slots em espiral) -----
   const slots = gerarSlots(40);
   const folhaTex = texturaFolha(cores);
-  const padMat = new THREE.MeshBasicMaterial({ map: folhaTex, transparent: true, alphaTest: 0.1, color: '#b8c8c0' });
+  const padMat = new THREE.MeshBasicMaterial({ map: folhaTex, transparent: true, alphaTest: 0.1, color: '#b8c8c0', side: THREE.DoubleSide });
   const pads = [];
   for (const s of slots) {
     const pad = new THREE.Mesh(new THREE.PlaneGeometry(s.tam, s.tam), padMat);
@@ -225,6 +226,7 @@ export function criarLagoa(scene, cores, festa) {
   vgGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const vgMat = new THREE.PointsMaterial(aditivo({ map: brilhoTex, size: 0.9, vertexColors: true, sizeAttenuation: true, opacity: 0.85 }));
   const vagalumes = new THREE.Points(vgGeo, vgMat);
+  vagalumes.frustumCulled = false;
   scene.add(vagalumes);
 
   // --- luzes de verdade (iluminam os sapos 3D) ---
@@ -239,13 +241,28 @@ export function criarLagoa(scene, cores, festa) {
     scene.add(c.luz);
   }
 
+  // ===================== FUNDO DO LAGO (vista do mergulho) =====================
+  const fundo = criarFundo(scene, paleta);
+
   // ===================== CABINE DO DJ (no centro) =====================
   const cabine = criarCabine(scene, paleta);
 
   // ===================== ANIMACAO =====================
   // ritmo = { fase: batidas desde o inicio, batida: 0..1 (pulso) }
+  // f: 0 = camera em cima, 1 = camera no fundo do lago
+  const corCeu = new THREE.Color('#050b16'), corFundo = new THREE.Color('#0d4f5c');
+  const neblinaCima = new THREE.Color('#071425');
+  function submerso(f) {
+    scene.background.copy(corCeu).lerp(corFundo, f);
+    scene.fog.color.copy(neblinaCima).lerp(corFundo, f);
+    scene.fog.near = 34 - f * 32;
+    scene.fog.far = 80 - f * 50;
+    fundo.visivel(f);
+  }
+
   function update(t, dt, ritmo, cam) {
     cabine.update(t, dt, ritmo, cam);
+    fundo.update(t, dt);
     const pulso = ritmo.batida;
     waterMat.uniforms.t.value = t;
     waterMat.uniforms.batida.value = pulso;
@@ -303,7 +320,7 @@ export function criarLagoa(scene, cores, festa) {
     vgMat.size = 0.8 + pulso * 0.5;
   }
 
-  return { water, waterMat, slots, pads, update, cabine: cabine.lugar };
+  return { water, waterMat, slots, pads, update, submerso, cabine: cabine.lugar };
 }
 
 // espiral de slots dentro da lagoa (mais juntinho pro formato vertical)
@@ -402,4 +419,114 @@ function criarCabine(scene, paleta) {
     luzCabine.intensity = 15 + p * 30;
   }
   return { lugar, update };
+}
+
+// ---- FUNDO DO LAGO: areia com luz dancando (caustica), algas balancando e
+// bolhas subindo. So aparece quando a camera mergulha.
+function criarFundo(scene, paleta) {
+  const grupo = new THREE.Group();
+  grupo.visible = false;
+  scene.add(grupo);
+  const PROF = -5;
+
+  const chaoMat = new THREE.ShaderMaterial({
+    uniforms: { t: { value: 0 } },
+    vertexShader: `varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} `,
+    fragmentShader: `varying vec2 vP; uniform float t;
+      void main(){
+        vec2 p = vP * 0.35;
+        float c = 0.0;
+        for (int i = 0; i < 3; i++) {
+          float fi = float(i);
+          c += abs(sin(p.x * (1.3 + fi*0.4) + t * (0.6 + fi*0.2) + sin(p.y*1.7 + t*0.5)) * cos(p.y * (1.1 + fi*0.3) - t*0.7));
+        }
+        c = pow(c / 3.0, 3.0) * 1.6;
+        vec3 areia = mix(vec3(0.08,0.24,0.22), vec3(0.18,0.36,0.30), smoothstep(26.0, 0.0, length(vP)));
+        gl_FragColor = vec4(areia + vec3(0.45,0.8,0.75) * c, 1.0);
+      }`
+  });
+  const chao = new THREE.Mesh(new THREE.CircleGeometry(30, 64), chaoMat);
+  chao.rotation.x = -Math.PI / 2; chao.position.y = PROF;
+  grupo.add(chao);
+
+  // pedrinhas redondas
+  const pedraMat = new THREE.MeshStandardMaterial({ color: '#33554a', roughness: 0.8 });
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 20, sz = 0.4 + Math.random() * 1.1;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(sz, 12, 8), pedraMat);
+    m.scale.y = 0.5; m.position.set(Math.cos(a) * r, PROF + sz * 0.2, Math.sin(a) * r);
+    grupo.add(m);
+  }
+
+  // algas: corrente de capsulas balancando
+  const algas = [];
+  const algaMats = ['#1f8a4c', '#2fae5f', '#3ccf74'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, emissive: '#06301a' }));
+  const gomo = new THREE.CapsuleGeometry(0.16, 0.55, 4, 8);
+  for (let i = 0; i < 34; i++) {
+    const a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 19;
+    let pai = new THREE.Group();
+    pai.position.set(Math.cos(a) * r, PROF, Math.sin(a) * r);
+    grupo.add(pai);
+    const segs = 4 + Math.floor(Math.random() * 4);
+    const cadeia = [];
+    let atual = pai;
+    for (let j = 0; j < segs; j++) {
+      const g = new THREE.Group();
+      g.position.y = j === 0 ? 0 : 0.7;
+      const m = new THREE.Mesh(gomo, algaMats[i % 3]);
+      m.position.y = 0.35;
+      g.add(m);
+      atual.add(g);
+      cadeia.push(g);
+      atual = g;
+    }
+    algas.push({ cadeia, fase: Math.random() * 6 });
+  }
+
+  // bolhas subindo
+  const N = 120;
+  const bpos = new Float32Array(N * 3);
+  const binfo = [];
+  for (let i = 0; i < N; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.random() * 22;
+    binfo.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, y: PROF + Math.random() * 5, v: 0.6 + Math.random() * 1.2, f: Math.random() * 6 });
+  }
+  const bgeo = new THREE.BufferGeometry();
+  bgeo.setAttribute('position', new THREE.BufferAttribute(bpos, 3));
+  const bolhas = new THREE.Points(bgeo, new THREE.PointsMaterial({ map: texturaBrilho(), size: 0.35, color: '#d8fbff', transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+  bolhas.frustumCulled = false;
+  grupo.add(bolhas);
+
+  // raios de luz entrando pela superficie
+  const raioMat = new THREE.MeshBasicMaterial({ map: texturaBrilho(), color: '#9ff3ff', transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const raios = [];
+  for (let i = 0; i < 7; i++) {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(2.4, 7, 24, 1, true), raioMat);
+    const a = (i / 7) * Math.PI * 2, r = 6 + (i % 3) * 5;
+    m.position.set(Math.cos(a) * r, -2.5, Math.sin(a) * r);
+    m.rotation.z = 0.2;
+    grupo.add(m);
+    raios.push(m);
+  }
+
+  const luz = new THREE.PointLight('#7fe6ff', 40, 30, 1.2);
+  luz.position.set(0, -1, 0);
+  grupo.add(luz);
+
+  let ligado = 0;
+  function visivel(f) { ligado = f; grupo.visible = f > 0.02; raioMat.opacity = 0.12 * f; }
+  function update(t, dt) {
+    if (!grupo.visible) return;
+    chaoMat.uniforms.t.value = t;
+    for (const a of algas) a.cadeia.forEach((g, j) => { g.rotation.z = Math.sin(t * 1.3 + a.fase + j * 0.6) * 0.18; g.rotation.x = Math.cos(t * 1.1 + a.fase + j * 0.5) * 0.12; });
+    for (let i = 0; i < N; i++) {
+      const b = binfo[i];
+      b.y += dt * b.v; b.f += dt * 3;
+      if (b.y > -0.2) b.y = PROF;
+      bpos[i * 3] = b.x + Math.sin(b.f) * 0.2; bpos[i * 3 + 1] = b.y; bpos[i * 3 + 2] = b.z;
+    }
+    bgeo.attributes.position.needsUpdate = true;
+    raios.forEach((m, i) => { m.rotation.y = t * 0.1 + i; });
+  }
+  return { visivel, update, PROF };
 }

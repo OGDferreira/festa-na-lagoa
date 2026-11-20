@@ -82,11 +82,37 @@ function salvaPlaylist() {
   broadcast({ t: 'playlist', estado: playlist });
 }
 
+// ---- PEDIDOS DE MUSICA (!musica no chat) ---------------------------------
+const pedidos = []; // { id, user: {id,name,avatar}, musica, quando }
+let micAberto = false;
+// aceita "!musica" e "!música" (com ou sem acento), maiusculo ou minusculo
+const COMANDO = (config.comandoMusica || '!musica').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function talvezComando(txt) {
+  const limpo = String(txt || '').trim();
+  const cabeca = limpo.split(/\s+/)[0].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  if (cabeca !== COMANDO) return null;
+  const resto = limpo.slice(limpo.split(/\s+/)[0].length).trim();
+  return resto || null;
+}
+function talvezPedido(ev) {
+  const pedido = talvezComando(ev.comment);
+  if (!pedido) return;
+  const musica = pedido.slice(0, 80);
+  // cada pessoa so tem 1 pedido na fila (o novo substitui o antigo)
+  const i = pedidos.findIndex((p) => p.user.id === ev.user.id);
+  if (i >= 0) pedidos.splice(i, 1);
+  const ped = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), user: ev.user, musica, quando: Date.now() };
+  pedidos.push(ped);
+  if (pedidos.length > 60) pedidos.shift();
+  broadcast({ t: 'pedido', ...ped });
+  broadcast({ t: 'pedidos', lista: pedidos });
+}
+
 // ---- ESTATISTICAS da live (resumo pro painel) -----------------------------
 const stats = {
   inicio: Date.now(), likes: 0, presentes: 0, moedas: 0, entradas: 0,
   comentarios: 0, seguidores: 0, compartilhamentos: 0, viewers: 0, picoViewers: 0,
-  doadores: {}, curtidores: {}
+  doadores: {}, curtidores: {}, porPresente: {}
 };
 function contabiliza(ev) {
   const soma = (mapa, u, n) => {
@@ -94,15 +120,24 @@ function contabiliza(ev) {
     r.name = u.name; r.valor += n;
   };
   if (ev.t === 'like') { stats.likes += ev.count || 1; soma(stats.curtidores, ev.user, ev.count || 1); }
-  else if (ev.t === 'gift') { stats.presentes++; stats.moedas += ev.diamond || 0; soma(stats.doadores, ev.user, ev.diamond || 0); }
+  else if (ev.t === 'gift') {
+    stats.presentes++; stats.moedas += ev.diamond || 0; soma(stats.doadores, ev.user, ev.diamond || 0);
+    // lista dos presentes que chegaram (nome, quantas vezes, moedas de cada)
+    const nome = ev.giftName || 'presente';
+    const g = stats.porPresente[nome] || (stats.porPresente[nome] = { nome, vezes: 0, moedas: 0, unidade: 0, imagem: '' });
+    g.vezes += ev.repeatCount || 1; g.moedas += ev.diamond || 0;
+    g.unidade = Math.round((ev.diamond || 0) / (ev.repeatCount || 1));
+    if (ev.image) g.imagem = ev.image;
+  }
   else if (ev.t === 'join') stats.entradas++;
-  else if (ev.t === 'chat') stats.comentarios++;
+  else if (ev.t === 'chat') { stats.comentarios++; talvezPedido(ev); }
   else if (ev.t === 'viewers') { stats.viewers = ev.count; stats.picoViewers = Math.max(stats.picoViewers, ev.count); }
   else if (ev.t === 'social') { if (ev.tipo === 'follow') stats.seguidores++; else if (ev.tipo === 'share') stats.compartilhamentos++; }
 }
 function resumoStats() {
   const top5 = (m) => Object.values(m).sort((a, b) => b.valor - a.valor).slice(0, 5);
-  return { ...stats, doadores: top5(stats.doadores), curtidores: top5(stats.curtidores), minutos: Math.round((Date.now() - stats.inicio) / 60000) };
+  const presentes = Object.values(stats.porPresente).sort((a, b) => b.moedas - a.moedas);
+  return { ...stats, porPresente: presentes, doadores: top5(stats.doadores), curtidores: top5(stats.curtidores), minutos: Math.round((Date.now() - stats.inicio) / 60000) };
 }
 
 // ---- HTTP ------------------------------------------------------------------
@@ -143,7 +178,7 @@ function api(req, res, urlPath) {
   if (!local(req)) return json(res, 403, { erro: 'so no computador da live' });
 
   if (req.method === 'GET' && urlPath === '/api/estado') {
-    return json(res, 200, { playlist, tocando: tocandoAgora, stats: resumoStats(), modo: MODE, usuario: USERNAME });
+    return json(res, 200, { playlist, tocando: tocandoAgora, stats: resumoStats(), pedidos, mic: micAberto, modo: MODE, usuario: USERNAME });
   }
 
   // upload de musica: corpo = bytes do arquivo, nome no header X-Arquivo
@@ -202,6 +237,38 @@ function api(req, res, urlPath) {
     });
   }
 
+  // tira um pedido da fila (tocado ou recusado)
+  if (req.method === 'DELETE' && urlPath.startsWith('/api/pedidos/')) {
+    const id = urlPath.slice('/api/pedidos/'.length);
+    const i = pedidos.findIndex((p) => p.id === id);
+    if (i >= 0) pedidos.splice(i, 1);
+    broadcast({ t: 'pedidos', lista: pedidos });
+    return json(res, 200, { ok: true, pedidos });
+  }
+
+  // botoes de teste do painel (simulam eventos pra ver os efeitos)
+  if (req.method === 'POST' && urlPath === '/api/teste') {
+    return lerJson(req, res, (b) => {
+      const u = { id: 'teste-admin', name: 'Teste do Admin', avatar: '', color: 'hsl(45,80%,55%)' };
+      if (b.tipo === 'mergulho') broadcast({ t: 'mergulhar' });
+      else if (b.tipo === 'epico') { broadcast({ t: 'join', user: u }); emit({ t: 'gift', user: u, giftName: 'Galáxia', diamond: 1000, repeatCount: 1, image: '' }); }
+      else if (b.tipo === 'medio') { broadcast({ t: 'join', user: u }); emit({ t: 'gift', user: u, giftName: 'Toboagua', diamond: 199, repeatCount: 1, image: '' }); }
+      else if (b.tipo === 'comentario') { broadcast({ t: 'join', user: u }); emit({ t: 'like', user: u, count: 12 }); setTimeout(() => emit({ t: 'chat', user: u, comment: 'Oi galera! Bora festa na lagoa 🐸' }), 300); }
+      else if (b.tipo === 'pedido') emit({ t: 'chat', user: u, comment: '!musica Música de teste' });
+      else return json(res, 400, { erro: 'tipo invalido' });
+      json(res, 200, { ok: true });
+    });
+  }
+
+  // mic do admin: abre = musica abaixa; fecha = volta
+  if (req.method === 'POST' && urlPath === '/api/mic') {
+    return lerJson(req, res, (b) => {
+      micAberto = !!b.aberto;
+      broadcast({ t: 'mic', aberto: micAberto });
+      json(res, 200, { ok: true, aberto: micAberto });
+    });
+  }
+
   json(res, 404, { erro: 'rota nao encontrada' });
 }
 
@@ -241,6 +308,8 @@ wss.on('connection', (ws, req) => {
   });
   ws.send(JSON.stringify({ t: 'hello', mode: MODE, user: USERNAME }));
   ws.send(JSON.stringify({ t: 'playlist', estado: playlist }));
+  ws.send(JSON.stringify({ t: 'pedidos', lista: pedidos }));
+  if (micAberto) ws.send(JSON.stringify({ t: 'mic', aberto: true }));
 });
 
 function broadcast(ev) {
@@ -321,9 +390,12 @@ function startDemo() {
     { giftName: 'Virar sapo', diamond: 5, repeatCount: 1 },
     { giftName: 'Construir ponte', diamond: 20, repeatCount: 1 },
     { giftName: 'Sapo Boi Gigante', diamond: 99, repeatCount: 1 },
-    { giftName: 'Toboagua', diamond: 199, repeatCount: 1 }
+    { giftName: 'Toboagua', diamond: 199, repeatCount: 1 },
+    { giftName: 'Galáxia', diamond: 1000, repeatCount: 1 }
   ];
-  const chats = ['curtindo demais', 'sobe meu sapo!', 'vamo perereca', 'top', 'kkkk', 'boa live', 'manda rosa', 'quero virar perereca', '#1 hoje'];
+  const chats = ['curtindo demais', 'sobe meu sapo!', 'vamo perereca', 'top', 'kkkk', 'boa live', 'manda rosa', 'quero virar perereca', '#1 hoje',
+    'que festa linda 😍', 'DJ solta o som!', 'meu girino ta nadando kkkk', 'olha eu ali!'];
+  const pedidosDemo = ['!musica Batida da Lagoa', '!musica algo animado', '!música funk do sapo', '!musica eletronica', '!musica pagode'];
 
   const pool = []; // espectadores "vivos" pra dar like/gift
   let viewers = 0;
@@ -354,14 +426,17 @@ function startDemo() {
   setInterval(() => {
     if (!pool.length) return;
     const u = pool[Math.floor(Math.random() * pool.length)];
-    const g = presentes[Math.floor(Math.random() * presentes.length)];
+    // presente grande e raro, os pequenos sao comuns
+    const r = Math.random();
+    const g = r < 0.06 ? presentes[5] : presentes[Math.floor(Math.random() * 5)];
     emit({ t: 'gift', user: u, giftName: g.giftName, diamond: g.diamond, repeatCount: g.repeatCount, image: '' });
   }, d.giftEveryMs);
 
   setInterval(() => {
     if (!pool.length) return;
     const u = pool[Math.floor(Math.random() * pool.length)];
-    emit({ t: 'chat', user: u, comment: chats[Math.floor(Math.random() * chats.length)] });
+    const txt = Math.random() < 0.18 ? pedidosDemo[Math.floor(Math.random() * pedidosDemo.length)] : chats[Math.floor(Math.random() * chats.length)];
+    emit({ t: 'chat', user: u, comment: txt });
   }, d.chatEveryMs);
 
   setInterval(() => {

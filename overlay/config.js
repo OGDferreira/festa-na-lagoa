@@ -23,13 +23,47 @@ export const CONFIG = {
   },
 
   // ---- MARCA / TEXTOS ----------------------------------------------------
+  // (o nome da conta nao aparece no overlay: o TikTok ja mostra la em cima)
   brand: {
-    nome: 'SUA LIVE',                       // nome do canal/marca (topo)
-    jogo: 'FESTA NA LAGOA',                 // nome do minigame
-    chamada: 'CURTA PARA FAZER SEU SAPO DANÇAR', // frase que pisca embaixo
-    // avatar/logo do topo: deixe '' pra usar o desenho padrao, ou aponte
-    // pra uma imagem sua em overlay/assets/, ex: 'assets/logo.png'
-    logo: ''
+    jogo: 'FESTA NA LAGOA',
+    // frases que ficam se alternando embaixo, piscando
+    chamadas: [
+      'CURTA PARA FAZER SEU SAPO DANÇAR',
+      'SEGUE A GENTE E ENTRA NA FESTA ➕',
+      'PEÇA SUA MÚSICA: DIGITE !musica + NOME',
+      'O MAIOR DOADOR VIRA O SAPO DJ 🎧'
+    ],
+    trocaChamadaSeg: 7
+  },
+
+  // ---- PEDIDO DE MUSICA PELO CHAT ----------------------------------------
+  // Quem comentar "!musica nome da musica" entra na fila do painel /admin.
+  // (o comando e conferido no servidor: server/config.js -> comandoMusica)
+
+  // ---- COMENTARIOS ----------------------------------------------------------
+  // Quando alguem que esta na festa comenta, aparece um balao em cima do sapo.
+  comentarios: {
+    ligado: true,
+    segundos: 6,          // quanto tempo o balao fica
+    maxCaracteres: 70
+  },
+
+  // ---- PRESENTES POR TAMANHO (em moedas) -----------------------------------
+  // O efeito depende de quantas moedas o presente vale (com combo somado).
+  // pequeno: so o aviso | medio: confete + destaque no sapo + zoom
+  // epico: explosao de luz na tela inteira, zoom no sapo e texto grande
+  tiersPresente: [
+    { min: 0,    tipo: 'pequeno' },
+    { min: 100,  tipo: 'medio' },
+    { min: 1000, tipo: 'epico' }
+  ],
+
+  // ---- MERGULHO (camera desce pro fundo do lago, onde estao os girinos) ---
+  mergulho: {
+    ligado: true,
+    acadaSeg: [35, 60],   // de quanto em quanto tempo (sorteia entre os dois)
+    duracaoSeg: 9,
+    minimoGirinos: 2      // so mergulha se tiver pelo menos isso de girinos
   },
 
   // ---- META (a barra de progresso, estilo "O Baile do Luar") -------------

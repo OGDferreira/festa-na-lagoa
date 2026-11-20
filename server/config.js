@@ -28,6 +28,9 @@ module.exports = {
     maxFakeViewers: 240
   },
 
+  // Comando do chat pra pedir musica (aceita com ou sem acento: !musica / !música)
+  comandoMusica: '!musica',
+
   // Chave de assinatura (Euler/SignServer). Normalmente nao precisa.
   // Se a conexao com a live falhar muito, gere uma chave gratis em
   // https://www.eulerstream.com e cole aqui.

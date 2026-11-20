@@ -219,6 +219,41 @@ export function texturaNome(texto, rank, cores, dj = false) {
   return tex;
 }
 
+// ---- BALAO DE COMENTARIO (em cima do sapo) ------------------------------
+export function texturaBalao(texto) {
+  const c = document.createElement('canvas');
+  c.width = 640; c.height = 240;
+  const g = c.getContext('2d');
+  g.font = '700 40px system-ui';
+  // quebra em ate 2 linhas
+  const palavras = String(texto).split(/s+/);
+  const linhas = [''];
+  for (const p of palavras) {
+    const tenta = (linhas[linhas.length - 1] + ' ' + p).trim();
+    if (g.measureText(tenta).width > 560 && linhas[linhas.length - 1]) {
+      if (linhas.length === 2) { linhas[1] += '…'; break; }
+      linhas.push(p);
+    } else linhas[linhas.length - 1] = tenta;
+  }
+  const larg = Math.min(600, Math.max(...linhas.map((l) => g.measureText(l).width)) + 56);
+  const alt = 30 + linhas.length * 50;
+  const x0 = 320 - larg / 2, y0 = 170 - alt;
+  // balao de vidro claro com rabinho
+  const grad = g.createLinearGradient(0, y0, 0, y0 + alt);
+  grad.addColorStop(0, 'rgba(255,255,255,.92)');
+  grad.addColorStop(1, 'rgba(225,245,240,.86)');
+  g.fillStyle = grad;
+  roundRect(g, x0, y0, larg, alt, 36); g.fill();
+  g.beginPath(); g.moveTo(300, 168); g.quadraticCurveTo(318, 210, 296, 228); g.quadraticCurveTo(334, 204, 342, 168); g.fill();
+  g.lineWidth = 4; g.strokeStyle = 'rgba(157,255,60,.9)';
+  roundRect(g, x0, y0, larg, alt, 36); g.stroke();
+  g.fillStyle = '#163024'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  linhas.forEach((l, i) => g.fillText(l, 320, y0 + 40 + i * 50));
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function roundRect(g, x, y, w, h, r) {
   g.beginPath();
   g.moveTo(x + r, y);

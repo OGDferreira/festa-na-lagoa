@@ -106,6 +106,12 @@ Música que está no **celular**: passe o arquivo pro computador (cabo USB, What
 
 O painel só abre no próprio computador (não fica exposto na rede).
 
+### Mais coisas do painel
+- **Abrir meu mic**: a música abaixa pra 20% enquanto você fala e volta sozinha quando fecha (atalho: tecla **M**). Se ligar o WebSocket do OBS (Ferramentas → Configurações do servidor WebSocket) e colocar a senha no painel, o botão também liga e desliga o seu microfone no OBS.
+- **Pedidos de música**: quem comentar  entra na fila do painel e aparece um aviso na live.
+- **Presentes recebidos**: lista cada presente que chegou, quantas vezes e quantas moedas vale, com o tamanho do efeito.
+- **Testar efeitos**: botões pra simular comentário, pedido, presente médio, presente épico e o mergulho, pra conferir antes de entrar ao vivo.
+
 ## 4.2 Monitor: live e painel lado a lado
 
 Abra `http://localhost:8080/monitor`. Na esquerda aparece a tela da live (9:16) e na direita o painel, tudo numa janela só. A tela da esquerda fica **sem som** pra não tocar a música em dobro com o OBS; tem um botão em cima pra ligar o som ali se você não estiver usando o OBS.
@@ -124,6 +130,10 @@ Mexa só no arquivo **`overlay/config.js`**. Lá dá pra trocar, sem programar:
 | Tamanho da tela e margens pra interface do TikTok | `tela` |
 | BPM da dança, cores e quantidade de luzes | `festa` |
 | Som de novo TOP 1 (buzina de DJ / fanfarra, ou arquivo seu) | `efeitos` |
+| Frases que alternam embaixo (curtir, seguir, pedir música) | `brand.chamadas` |
+| Balão de comentário em cima do sapo | `comentarios` |
+| Tamanho do efeito por moedas (pequeno / médio / épico) | `tiersPresente` |
+| Câmera mergulhando pro fundo do lago | `mergulho` |
 | Cores do tema (água, folha, neon, ouro…) | `cores` |
 | Quantos likes pra virar sapo / perereca | `estagios` |
 | Quantos sapos na tela ao mesmo tempo | `maxSapos` |

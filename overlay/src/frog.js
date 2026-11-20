@@ -5,7 +5,7 @@
 // curtindo mais, pula pra folha como sapo e depois vira PERERECA (coroa).
 // O maior doador vira o SAPO DJ (fone de ouvido, la na cabine).
 import * as THREE from 'three';
-import { texturaAvatar, texturaNome, texturaBrilho, corDaString } from './assets.js';
+import { texturaAvatar, texturaNome, texturaBrilho, texturaBalao, corDaString } from './assets.js';
 
 // ---- geometrias compartilhadas (economiza memoria) ------------------------
 const G = {
@@ -45,6 +45,9 @@ function bola(geo, mat, x, y, z, sx, sy, sz) {
 const PASSOS = ['maosPraCima', 'tchauTchau', 'remexe', 'pulinho'];
 
 export class Sapo {
+  // 0 = superficie, 1 = camera la no fundo (girinos descem pra aparecer nadando)
+  static profundidade = 0;
+
   constructor(user, cores, config) {
     this.user = user;
     this.cores = cores;
@@ -90,6 +93,14 @@ export class Sapo {
     this.nome = new THREE.Sprite(this.nomeMat);
     this.nome.scale.set(4, 1, 1);
     this.group.add(this.nome);
+
+    // balao de comentario
+    this.balaoMat = new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0 });
+    this.balao = new THREE.Sprite(this.balaoMat);
+    this.balao.scale.set(6.4, 2.4, 1);
+    this.balao.visible = false;
+    this.group.add(this.balao);
+    this._balaoAte = 0;
 
     this._escala = 0.01;
     this._aplicaEstagio();
@@ -271,6 +282,28 @@ export class Sapo {
     this.nomeMat.needsUpdate = true;
   }
 
+  // comentario aparece num balao em cima do sapo
+  falar(texto, segundos = 6) {
+    if (this.balaoMat.map) this.balaoMat.map.dispose();
+    this.balaoMat.map = texturaBalao(texto);
+    this.balaoMat.needsUpdate = true;
+    this.balao.visible = true;
+    this._balaoAte = performance.now() / 1000 + segundos;
+    this._balaoIn = 0;
+  }
+
+  _updateBalao(dt) {
+    if (!this.balao.visible) return;
+    const resta = this._balaoAte - performance.now() / 1000;
+    this._balaoIn = Math.min(1, (this._balaoIn || 0) + dt * 5);
+    const a = Math.min(this._balaoIn, Math.max(0, resta / 0.5));
+    this.balaoMat.opacity = a;
+    const s = 0.7 + 0.3 * this._balaoIn;
+    this.balao.scale.set(6.4 * s, 2.4 * s, 1);
+    this.balao.position.y = this.nome.position.y + 1.25;
+    if (resta <= 0) this.balao.visible = false;
+  }
+
   // ---------------- animacao ----------------
   // ritmo = { fase (batidas), batida (0..1) }
   update(dt, t, ritmo, cam) {
@@ -289,7 +322,7 @@ export class Sapo {
     const ang = b * Math.PI;
     const forca = 0.75 + this._empolgacao * 0.5 + ritmo.batida * 0.25;
 
-    if (this.ehGirino) return this._updateGirino(dt, t, ang, k);
+    if (this.ehGirino) { this._updateGirino(dt, t, ang, k); this._updateBalao(dt); return; }
 
     this.trocaPassoEm -= dt;
     if (this.trocaPassoEm <= 0) {
@@ -341,6 +374,7 @@ export class Sapo {
     const topo = (this.corpo.position.y + 1.45) * k;
     this.avatar.position.y = topo + 0.65;
     this.nome.position.y = this.avatar.position.y + 1.0;
+    this._updateBalao(dt);
   }
 
   _updateGirino(dt, t, ang, k) {
@@ -354,13 +388,17 @@ export class Sapo {
     // girino olha pra onde nada, mas meio virado pra camera
     this.girino.rotation.y = 0;
     this.cauda.rotation.y = Math.sin(t * 9 + this._nado) * 0.45;
-    this.girino.position.y = -0.04 + Math.sin(ang) * 0.025;
+    // no mergulho os girinos descem e nadam la embaixo
+    const prof = Sapo.profundidade;
+    this.girino.position.y = -0.04 - prof * 1.4 + Math.sin(ang) * 0.025;
+    this.girino.rotation.x = prof * -0.25;
+    this.onda.visible = prof < 0.3;
     // marolinha pulsando
     this._onda = (this._onda + dt * 0.7) % 1;
     this.onda.scale.setScalar(k * (0.35 + this._onda * 0.45));
     this.onda.material.opacity = 0.5 * (1 - this._onda);
 
-    this.avatar.position.y = k * 0.45 + 0.5;
+    this.avatar.position.y = k * 0.45 + 0.5 - prof * k * 0.3;
     this.nome.position.y = this.avatar.position.y + 0.95;
   }
 
@@ -371,6 +409,8 @@ export class Sapo {
     this.pele.dispose(); this.barriga.dispose(); this.peleGirino.dispose();
     this.onda.material.dispose();
     this.avatarMat.dispose();
+    if (this.balaoMat.map) this.balaoMat.map.dispose();
+    this.balaoMat.dispose();
     this.nomeMat.dispose();
   }
 }

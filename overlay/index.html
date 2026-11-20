@@ -22,19 +22,8 @@
     <!-- CAMADA DE INTERFACE (HUD), em pixels de 1080x1920 -->
     <div id="hud">
 
-      <!-- topo: marca + meta -->
+      <!-- topo: so a barra da meta (o nome da conta o TikTok ja mostra) -->
       <header id="topo">
-        <div class="linha-marca">
-          <div id="logo" class="logo"></div>
-          <div class="marca-txt">
-            <div class="marca-nome" data-brand-nome></div>
-            <div class="marca-meta">
-              <span data-meta-titulo></span>
-              <span class="pill" id="viewers-pill">👁 <b id="viewers">0</b></span>
-            </div>
-          </div>
-        </div>
-
         <div class="barra-meta">
           <div class="barra-trilho"><div class="barra-fill" id="meta-fill"></div></div>
           <div class="barra-txt">Faltam <b id="meta-faltam">0</b> 💚 para <span data-meta-recompensa></span></div>
@@ -62,7 +51,13 @@
       <!-- popup de presente -->
       <div id="gift-popup"></div>
 
-      <!-- chamada piscando -->
+      <!-- presente EPICO (tela cheia) -->
+      <div id="epico"></div>
+
+      <!-- aviso da vista do fundo do lago -->
+      <div id="mergulho" hidden>🫧 No fundo da lagoa: os girinos!</div>
+
+      <!-- chamada piscando (alterna as frases do config) -->
       <div id="chamada" data-brand-chamada></div>
 
       <!-- aviso de som / status -->
