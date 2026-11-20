@@ -108,7 +108,7 @@ O painel só abre no próprio computador (não fica exposto na rede).
 
 ### Mais coisas do painel
 - **Abrir meu mic**: a música abaixa pra 20% enquanto você fala e volta sozinha quando fecha (atalho: tecla **M**). Se ligar o WebSocket do OBS (Ferramentas → Configurações do servidor WebSocket) e colocar a senha no painel, o botão também liga e desliga o seu microfone no OBS.
-- **Pedidos de música**: quem comentar  entra na fila do painel e aparece um aviso na live.
+- **Pedidos de música**: quem comentar `!musica nome da música` entra na fila do painel e aparece um aviso na live.
 - **Presentes recebidos**: lista cada presente que chegou, quantas vezes e quantas moedas vale, com o tamanho do efeito.
 - **Testar efeitos**: botões pra simular comentário, pedido, presente médio, presente épico e o mergulho, pra conferir antes de entrar ao vivo.
 
