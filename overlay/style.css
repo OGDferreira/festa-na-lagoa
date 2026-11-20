@@ -1,0 +1,164 @@
+/* overlay/style.css */
+:root {
+  --destaque: #9dff3c;
+  --ouro: #ffd43b;
+  --rosa: #ff4d9d;
+  --escuro: rgba(10, 24, 20, 0.72);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #0b3b46;              /* fundo caso a cena demore a carregar */
+  font-family: 'Segoe UI', 'Trebuchet MS', system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+}
+
+#cena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; }
+
+/* ---------- TOPO ---------- */
+#topo {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 14px 16px 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.linha-marca { display: flex; align-items: center; gap: 12px; }
+
+.logo {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #7de06b, #1f7a8c 70%);
+  border: 3px solid var(--destaque);
+  box-shadow: 0 0 18px rgba(157,255,60,.5);
+  background-size: cover; background-position: center;
+  flex: 0 0 auto;
+}
+
+.marca-nome {
+  font-size: 26px; font-weight: 900; letter-spacing: .5px;
+  color: var(--destaque);
+  text-shadow: 0 2px 0 #114, 0 0 14px rgba(157,255,60,.6);
+  -webkit-text-stroke: 1px rgba(0,40,20,.6);
+}
+.marca-meta { display: flex; align-items: center; gap: 10px; font-size: 14px; opacity: .92; }
+.pill {
+  background: var(--escuro); padding: 3px 10px; border-radius: 999px;
+  font-size: 13px; border: 1px solid rgba(255,255,255,.15);
+}
+
+/* barra de meta */
+.barra-meta { display: flex; flex-direction: column; gap: 3px; max-width: 560px; }
+.barra-trilho {
+  height: 14px; border-radius: 999px; overflow: hidden;
+  background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.18);
+}
+.barra-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--destaque), #43d9ad);
+  box-shadow: 0 0 10px var(--destaque);
+  transition: width .5s ease;
+}
+.barra-txt { font-size: 13px; opacity: .9; text-shadow: 0 1px 2px #000; }
+
+/* ---------- RANKING (podio) ---------- */
+.ranking { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.rank-card {
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(180deg, rgba(60,40,10,.85), rgba(30,20,5,.9));
+  border: 1px solid rgba(255,212,59,.5);
+  border-radius: 12px; padding: 6px 12px 6px 8px;
+  min-width: 150px; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+.rank-medal {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 900; font-size: 13px;
+  color: #3a2a00;
+}
+.rank-1 .rank-medal { background: var(--ouro); }
+.rank-2 .rank-medal { background: #d7dde4; }
+.rank-3 .rank-medal { background: #cd8b52; }
+.rank-nome { font-weight: 800; font-size: 14px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-pts { font-size: 12px; color: var(--ouro); display: flex; align-items: center; gap: 3px; }
+.rank-titulo { width: 100%; font-size: 12px; letter-spacing: 1px; opacity: .8; text-transform: uppercase; margin-bottom: 2px; }
+
+/* ---------- TOASTS de entrada ---------- */
+#toasts {
+  position: absolute; left: 14px; bottom: 150px;
+  display: flex; flex-direction: column-reverse; gap: 6px; max-width: 340px;
+}
+.toast {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--escuro); border-radius: 999px; padding: 5px 12px 5px 6px;
+  border: 1px solid rgba(255,255,255,.14);
+  animation: toastIn .3s ease, toastOut .4s ease 3.6s forwards;
+  font-size: 14px;
+}
+.toast img, .toast .av {
+  width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: 0 0 auto;
+  display: grid; place-items: center; font-weight: 800; font-size: 12px; color: #fff;
+}
+.toast b { color: var(--destaque); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-20px); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(-20px); } }
+
+/* ---------- POPUP de presente ---------- */
+#gift-popup {
+  position: absolute; left: 14px; bottom: 96px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.gift {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(90deg, rgba(0,0,0,.65), rgba(0,0,0,.2));
+  border-radius: 14px; padding: 8px 16px 8px 8px;
+  border: 1px solid rgba(255,255,255,.2);
+  animation: giftIn .35s ease, giftOut .5s ease 4.2s forwards;
+}
+.gift .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; }
+.gift .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.gift-txt b { color: var(--destaque); }
+.gift-emoji { font-size: 26px; }
+@keyframes giftIn { from { opacity: 0; transform: scale(.7) translateX(-20px); } }
+@keyframes giftOut { to { opacity: 0; transform: translateX(-30px); } }
+
+/* ---------- CHAMADA piscando ---------- */
+#chamada {
+  position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
+  font-size: 34px; font-weight: 900; letter-spacing: 1px;
+  color: #fff; text-align: center; white-space: nowrap;
+  -webkit-text-stroke: 2px #1a5a2a;
+  text-shadow: 0 0 18px var(--destaque), 0 3px 0 #1a5a2a;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { transform: translateX(-50%) scale(1.06); opacity: .85; } }
+
+/* ---------- PERERECA burst (criado via JS) ---------- */
+.perereca-burst {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  font-size: 64px; font-weight: 900; color: #fff;
+  -webkit-text-stroke: 3px var(--rosa);
+  text-shadow: 0 0 30px var(--rosa);
+  animation: burst 1.6s ease forwards; pointer-events: none;
+}
+@keyframes burst {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.3) rotate(-8deg); }
+  20% { opacity: 1; transform: translate(-50%,-50%) scale(1.15) rotate(3deg); }
+  80% { opacity: 1; transform: translate(-50%,-55%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-70%) scale(1); }
+}
+
+/* ---------- STATUS / SOM ---------- */
+#status-bar {
+  position: absolute; right: 12px; bottom: 10px;
+  font-size: 12px; opacity: .6; text-shadow: 0 1px 2px #000;
+}
+#btn-som {
+  position: absolute; right: 12px; bottom: 34px;
+  pointer-events: auto; cursor: pointer;
+  background: var(--destaque); color: #0a2a10; font-weight: 800;
+  border: none; border-radius: 999px; padding: 8px 14px; font-size: 13px;
+}
