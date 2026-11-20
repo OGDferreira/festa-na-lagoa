@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Festa na Lagoa — Overlay</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Three.js vendorizado localmente (nao depende de internet/CDN) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/lib/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- PALCO 9:16 — tudo e desenhado em 1080x1920 e escalado pra caber -->
+  <div id="palco">
+    <canvas id="cena"></canvas>
+
+    <!-- CAMADA DE INTERFACE (HUD), em pixels de 1080x1920 -->
+    <div id="hud">
+
+      <!-- topo: so a barra da meta (o nome da conta o TikTok ja mostra) -->
+      <header id="topo">
+        <div class="barra-meta">
+          <div class="barra-trilho"><div class="barra-fill" id="meta-fill"></div></div>
+          <div class="barra-txt">Faltam <b id="meta-faltam">0</b> 💚 para <span data-meta-recompensa></span></div>
+        </div>
+      </header>
+
+      <!-- cards top 5 -->
+      <section id="cards">
+        <div class="card card-doadores">
+          <div class="card-titulo"><span class="card-ico">🪙</span><span data-titulo-doadores></span></div>
+          <ol class="card-lista" id="lista-doadores"></ol>
+        </div>
+        <div class="card card-curtidores">
+          <div class="card-titulo"><span class="card-ico">💗</span><span data-titulo-curtidores></span></div>
+          <ol class="card-lista" id="lista-curtidores"></ol>
+        </div>
+      </section>
+
+      <!-- tocando agora -->
+      <div id="tocando" hidden><span class="disco"></span><span id="tocando-txt"></span></div>
+
+      <!-- toasts de entrada -->
+      <div id="toasts"></div>
+
+      <!-- popup de presente -->
+      <div id="gift-popup"></div>
+
+      <!-- presente EPICO (tela cheia) -->
+      <div id="epico"></div>
+
+      <!-- aviso da vista do fundo do lago -->
+      <div id="mergulho" hidden>🫧 No fundo da lagoa: os girinos!</div>
+
+      <!-- chamada piscando (alterna as frases do config) -->
+      <div id="chamada" data-brand-chamada></div>
+
+      <!-- aviso de som / status -->
+      <div id="status-bar"></div>
+      <button id="btn-som" hidden>🔊 toque pra ligar o som</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
