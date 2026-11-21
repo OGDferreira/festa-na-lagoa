@@ -2,14 +2,18 @@
 # festa-na-lagoa :: setup no VPS Ubuntu 24.04 (Hostinger KVM)
 # Sobe overlay + painel /admin 24/7 como servico systemd na porta 8080.
 # Rodar como root. Idempotente: rode de novo pra atualizar o codigo.
+#
+# Senha propria (nao fica no repo):
+#   curl -fsSL <url-deste-script> | ADMIN_PASSWORD='suasenha' bash
 set -euo pipefail
 
 REPO="https://github.com/OGDferreira/festa-na-lagoa"
 BRANCH="claude/project-thread-rbxmuo"
 DIR="/opt/festa-na-lagoa"
 PORT="8080"
-# Senha do painel /admin e /monitor (acesso de fora). Troque aqui se quiser.
-ADMIN_PASSWORD="festa-lagoa-2026"
+# Senha do painel /admin e /monitor (acesso de fora).
+# Troque exportando ADMIN_PASSWORD antes de rodar; o padrao abaixo e publico.
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-festa-lagoa-2026}"
 
 echo ">> instalando node 20 + git"
 if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 18 ]; then
