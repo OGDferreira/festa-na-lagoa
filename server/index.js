@@ -141,10 +141,28 @@ function resumoStats() {
 }
 
 // ---- HTTP ------------------------------------------------------------------
-// O painel e a API so respondem pra quem esta no proprio computador.
+// O painel e a API so respondem pra quem esta no proprio computador,
+// ou, se ADMIN_PASSWORD estiver definida, pra quem passa a senha (Basic Auth).
 function local(req) {
   const ip = req.socket.remoteAddress || '';
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+// Senha do painel (env ADMIN_PASSWORD). Vazio = painel so no localhost.
+// Com senha definida, libera /admin, /monitor e /api pra fora via Basic Auth.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+function authed(req) {
+  if (local(req)) return true;
+  if (!ADMIN_PASSWORD) return false;
+  const h = req.headers['authorization'] || '';
+  const m = /^Basic\s+(.+)$/i.exec(h);
+  if (!m) return false;
+  let pass = '';
+  try { pass = Buffer.from(m[1], 'base64').toString('utf8').split(':').slice(1).join(':'); } catch { return false; }
+  return pass === ADMIN_PASSWORD;
+}
+function pedeSenha(res, txt) {
+  res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="festa-na-lagoa"', 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(txt || 'precisa de senha');
 }
 function json(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -175,7 +193,7 @@ function servirArquivo(res, base, urlPath) {
 }
 
 function api(req, res, urlPath) {
-  if (!local(req)) return json(res, 403, { erro: 'so no computador da live' });
+  if (!authed(req)) { return pedeSenha(res, 'painel protegido por senha'); }
 
   if (req.method === 'GET' && urlPath === '/api/estado') {
     return json(res, 200, { playlist, tocando: tocandoAgora, stats: resumoStats(), pedidos, mic: micAberto, modo: MODE, usuario: USERNAME });
@@ -277,11 +295,11 @@ const server = http.createServer((req, res) => {
   try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); } catch { res.writeHead(400); return res.end(); }
   if (urlPath.startsWith('/api/')) return api(req, res, urlPath);
   if (urlPath === '/monitor') {
-    if (!local(req)) { res.writeHead(403); return res.end('monitor so no computador da live'); }
+    if (!authed(req)) return pedeSenha(res, 'monitor protegido por senha');
     return servirArquivo(res, ADMIN_DIR, '/monitor.html');
   }
   if (urlPath === '/admin' || urlPath.startsWith('/admin/')) {
-    if (!local(req)) { res.writeHead(403); return res.end('painel so no computador da live'); }
+    if (!authed(req)) return pedeSenha(res, 'painel protegido por senha');
     let sub = urlPath.slice('/admin'.length) || '/';
     if (sub === '/') sub = '/index.html';
     return servirArquivo(res, ADMIN_DIR, sub);

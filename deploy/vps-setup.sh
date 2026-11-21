@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # festa-na-lagoa :: setup no VPS Ubuntu 24.04 (Hostinger KVM)
-# Sobe o overlay 24/7 como servico systemd na porta 8080.
-# Rodar como root. Idempotente: pode rodar de novo pra atualizar.
+# Sobe overlay + painel /admin 24/7 como servico systemd na porta 8080.
+# Rodar como root. Idempotente: rode de novo pra atualizar o codigo.
 set -euo pipefail
 
 REPO="https://github.com/OGDferreira/festa-na-lagoa"
-BRANCH="prototipo-festa-na-lagoa"
+BRANCH="claude/project-thread-rbxmuo"
 DIR="/opt/festa-na-lagoa"
 PORT="8080"
+# Senha do painel /admin e /monitor (acesso de fora). Troque aqui se quiser.
+ADMIN_PASSWORD="festa-lagoa-2026"
 
 echo ">> instalando node 20 + git"
 if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 18 ]; then
@@ -16,11 +18,10 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d. -f1 | tr -d v)" -
 fi
 apt-get install -y git >/dev/null 2>&1 || true
 
-echo ">> clonando/atualizando repo em $DIR"
+echo ">> clonando/atualizando repo em $DIR (branch $BRANCH)"
 if [ -d "$DIR/.git" ]; then
-  git -C "$DIR" fetch origin "$BRANCH"
-  git -C "$DIR" checkout "$BRANCH"
-  git -C "$DIR" reset --hard "origin/$BRANCH"
+  git -C "$DIR" fetch origin "$BRANCH" --depth 1
+  git -C "$DIR" checkout -B deploy FETCH_HEAD
 else
   rm -rf "$DIR"
   git clone --branch "$BRANCH" --depth 1 "$REPO" "$DIR"
@@ -42,6 +43,7 @@ WorkingDirectory=$DIR
 Environment=MODE=demo
 Environment=TIKTOK_USERNAME=seuusuario
 Environment=PORT=$PORT
+Environment=ADMIN_PASSWORD=$ADMIN_PASSWORD
 ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=3
@@ -65,5 +67,9 @@ systemctl --no-pager status festa-na-lagoa | head -n 8 || true
 IP=$(curl -s https://api.ipify.org || echo "SEU_IP")
 echo ""
 echo "=================================================="
-echo " PRONTO. Abra no navegador:  http://$IP:$PORT"
+echo " PRONTO."
+echo "   Overlay (OBS/publico):  http://$IP:$PORT"
+echo "   Painel admin:           http://$IP:$PORT/admin"
+echo "   Monitor:                http://$IP:$PORT/monitor"
+echo "   Usuario do painel: qualquer   Senha: $ADMIN_PASSWORD"
 echo "=================================================="
